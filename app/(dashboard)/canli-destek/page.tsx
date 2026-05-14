@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase, Session } from '@/lib/supabase'
-import { Headphones, Clock, X, Send, RefreshCw, ChevronRight, CheckCheck, Volume2, VolumeX } from 'lucide-react'
+import { Headphones, Clock, X, Send, RefreshCw, ChevronRight, CheckCheck, Bell, BellOff } from 'lucide-react'
 
 type SlackMessage = {
   ts: string
@@ -30,7 +30,7 @@ function parseSlackText(text: string): string {
 }
 
 function isSystemMessage(m: SlackMessage, idx: number): boolean {
-  if (idx === 0) return true // ilk mesaj her zaman sistem bildirimi
+  if (idx === 0) return true
   const text = m.text || ''
   return (
     text.includes('Yeni Canlı Destek Talebi') ||
@@ -38,21 +38,6 @@ function isSystemMessage(m: SlackMessage, idx: number): boolean {
     text.includes('joined the channel') ||
     (m.is_bot && !m.username && (text.includes('Müşteri:') || text.includes('Telefon:')))
   )
-}
-
-function playNotification() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const o = ctx.createOscillator()
-    const g = ctx.createGain()
-    o.connect(g)
-    g.connect(ctx.destination)
-    o.frequency.value = 520
-    g.gain.setValueAtTime(0.3, ctx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
-    o.start(ctx.currentTime)
-    o.stop(ctx.currentTime + 0.4)
-  } catch {}
 }
 
 export default function CanliDestekPage() {
@@ -63,11 +48,55 @@ export default function CanliDestekPage() {
   const [msgLoading, setMsgLoading] = useState(false)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
-  const [soundOn, setSoundOn] = useState(true)
+  const [notifOn, setNotifOn] = useState(false)
   const [unread, setUnread] = useState<Record<string, number>>({})
   const [lastMsgTs, setLastMsgTs] = useState<Record<string, string>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const prevSessionsRef = useRef<string[]>([])
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Bildirim iznini iste
+  async function requestNotif() {
+    if (!('Notification' in window)) return
+    const perm = await Notification.requestPermission()
+    setNotifOn(perm === 'granted')
+  }
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setNotifOn(true)
+    }
+    // Audio element oluştur
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+    audio.volume = 0.5
+    audioRef.current = audio
+  }, [])
+
+  function notify(title: string, body: string) {
+    // Masaüstü bildirim
+    if (notifOn && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' })
+    }
+    // Ses
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => {
+        // Fallback: AudioContext
+        try {
+          const ctx = new AudioContext()
+          const o = ctx.createOscillator()
+          const g = ctx.createGain()
+          o.connect(g)
+          g.connect(ctx.destination)
+          o.frequency.value = 880
+          g.gain.setValueAtTime(0.4, ctx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+          o.start()
+          o.stop(ctx.currentTime + 0.3)
+        } catch {}
+      })
+    }
+  }
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -77,18 +106,17 @@ export default function CanliDestekPage() {
       .neq('slack_thread_ts', '')
       .order('updated_at', { ascending: false })
 
-    const sessions = (data || []) as Session[]
-
-    // Yeni oturum geldi mi? Bildirim çal
-    const newPhones = sessions.map(s => s.phone)
+    const list = (data || []) as Session[]
+    const newPhones = list.map(s => s.phone)
     const oldPhones = prevSessionsRef.current
     const hasNew = newPhones.some(p => !oldPhones.includes(p))
-    if (hasNew && oldPhones.length > 0 && soundOn) playNotification()
+    if (hasNew && oldPhones.length > 0) {
+      notify('🔔 Yeni Canlı Destek Talebi', 'Yeni bir müşteri canlı desteğe bağlandı')
+    }
     prevSessionsRef.current = newPhones
-
-    setSessions(sessions)
+    setSessions(list)
     setLoading(false)
-  }, [soundOn])
+  }, [notifOn])
 
   useEffect(() => {
     load()
@@ -100,39 +128,28 @@ export default function CanliDestekPage() {
     if (!silent) setMsgLoading(true)
     const res = await fetch(`/api/slack/messages?thread_ts=${thread_ts}`)
     const data = await res.json()
+    const filtered = (data.messages || []).filter((m: SlackMessage, i: number) => !isSystemMessage(m, i))
 
-    const filtered = (data.messages || [])
-      .filter((m: SlackMessage, i: number) => !isSystemMessage(m, i))
-
-    // Yeni müşteri mesajı geldi mi?
     const lastTs = filtered.length > 0 ? filtered[filtered.length - 1].ts : null
-    if (lastTs && lastTs !== lastMsgTs[thread_ts]) {
-      const prevTs = lastMsgTs[thread_ts]
-      if (prevTs) {
-        const newCustomerMsgs = filtered.filter(
-          (m: SlackMessage) => m.ts > prevTs && m.username !== 'milgo-admin'
-        )
-        if (newCustomerMsgs.length > 0) {
-          if (soundOn) playNotification()
-          // Eğer bu thread seçili değilse unread artır
-          if (selected?.slack_thread_ts !== thread_ts) {
-            setUnread(prev => ({
-              ...prev,
-              [thread_ts]: (prev[thread_ts] || 0) + newCustomerMsgs.length
-            }))
-          }
+    if (lastTs && lastMsgTs[thread_ts] && lastTs !== lastMsgTs[thread_ts]) {
+      const newMsgs = filtered.filter(
+        (m: SlackMessage) => m.ts > lastMsgTs[thread_ts] && m.username !== 'milgo-admin'
+      )
+      if (newMsgs.length > 0) {
+        notify('💬 Yeni Mesaj', newMsgs[newMsgs.length - 1].text.slice(0, 60))
+        if (selected?.slack_thread_ts !== thread_ts) {
+          setUnread(prev => ({ ...prev, [thread_ts]: (prev[thread_ts] || 0) + newMsgs.length }))
         }
       }
-      if (lastTs) setLastMsgTs(prev => ({ ...prev, [thread_ts]: lastTs }))
     }
+    if (lastTs) setLastMsgTs(prev => ({ ...prev, [thread_ts]: lastTs }))
 
     setMessages(filtered)
     if (!silent) setMsgLoading(false)
-  }, [lastMsgTs, selected, soundOn])
+  }, [lastMsgTs, selected, notifOn])
 
   useEffect(() => {
     if (!selected?.slack_thread_ts) return
-    // Seçilince unread sıfırla
     setUnread(prev => ({ ...prev, [selected.slack_thread_ts!]: 0 }))
     loadMessages(selected.slack_thread_ts)
     const t = setInterval(() => loadMessages(selected.slack_thread_ts!, true), 8000)
@@ -143,14 +160,10 @@ export default function CanliDestekPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Oturum kapandıysa (listeden çıktıysa) sohbeti kapat
   useEffect(() => {
     if (selected && sessions.length > 0) {
       const stillExists = sessions.find(s => s.phone === selected.phone)
-      if (!stillExists) {
-        setSelected(null)
-        setMessages([])
-      }
+      if (!stillExists) { setSelected(null); setMessages([]) }
     }
   }, [sessions, selected])
 
@@ -192,14 +205,15 @@ export default function CanliDestekPage() {
         <div className="p-6 border-b border-cream-100">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs uppercase tracking-[0.3em] text-ink-300">
-              {sessions.length} aktif {totalUnread > 0 && <span className="ml-1 bg-ember-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">{totalUnread}</span>}
+              {sessions.length} aktif
+              {totalUnread > 0 && <span className="ml-2 bg-ember-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">{totalUnread}</span>}
             </p>
             <button
-              onClick={() => setSoundOn(v => !v)}
-              className="text-ink-300 hover:text-ink-600 transition-colors"
-              title={soundOn ? 'Sesi kapat' : 'Sesi aç'}
+              onClick={notifOn ? () => setNotifOn(false) : requestNotif}
+              className={`transition-colors ${notifOn ? 'text-moss-500' : 'text-ink-300 hover:text-ink-600'}`}
+              title={notifOn ? 'Bildirimleri kapat' : 'Bildirimleri aç'}
             >
-              {soundOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              {notifOn ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
             </button>
           </div>
           <h1 className="font-display text-2xl text-ink-900">Canlı Destek</h1>
@@ -207,6 +221,14 @@ export default function CanliDestekPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" />
             <span className="text-[10px] font-mono text-ink-300">otomatik · 15s</span>
           </div>
+          {!notifOn && (
+            <button
+              onClick={requestNotif}
+              className="mt-3 w-full text-xs py-1.5 px-3 bg-cream-100 hover:bg-cream-200 text-ink-500 rounded-lg transition-colors"
+            >
+              🔔 Bildirimleri etkinleştir
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -270,7 +292,6 @@ export default function CanliDestekPage() {
       {/* Sağ panel */}
       {selected ? (
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
           <div className="px-6 py-4 border-b border-cream-200 bg-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -288,30 +309,19 @@ export default function CanliDestekPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => loadMessages(selected.slack_thread_ts!)}
-                className="w-8 h-8 rounded-lg hover:bg-cream-100 text-ink-300 hover:text-ink-700 transition-colors flex items-center justify-center"
-                title="Yenile"
-              >
+              <button onClick={() => loadMessages(selected.slack_thread_ts!)} className="w-8 h-8 rounded-lg hover:bg-cream-100 text-ink-300 hover:text-ink-700 transition-colors flex items-center justify-center">
                 <RefreshCw className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => endLiveSupport(selected.phone)}
-                className="px-3 py-1.5 text-xs bg-ember-50 text-ember-600 border border-ember-200 rounded-lg hover:bg-ember-100 transition-colors font-medium flex items-center gap-1.5"
-              >
+              <button onClick={() => endLiveSupport(selected.phone)} className="px-3 py-1.5 text-xs bg-ember-50 text-ember-600 border border-ember-200 rounded-lg hover:bg-ember-100 transition-colors font-medium flex items-center gap-1.5">
                 <CheckCheck className="w-3.5 h-3.5" />
                 Sohbeti Bitir
               </button>
-              <button
-                onClick={() => { setSelected(null); setMessages([]) }}
-                className="w-8 h-8 rounded-lg hover:bg-cream-100 text-ink-300 transition-colors flex items-center justify-center"
-              >
+              <button onClick={() => { setSelected(null); setMessages([]) }} className="w-8 h-8 rounded-lg hover:bg-cream-100 text-ink-300 transition-colors flex items-center justify-center">
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Mesajlar */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-cream-50">
             {msgLoading ? (
               <div className="space-y-4">
@@ -335,16 +345,10 @@ export default function CanliDestekPage() {
                 const isAdmin = m.username === 'milgo-admin'
                 return (
                   <div key={m.ts} className={`flex items-end gap-2 ${isAdmin ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mb-1 ${
-                      isAdmin ? 'bg-ink-900 text-cream-50' : 'bg-moss-200 text-moss-800'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mb-1 ${isAdmin ? 'bg-ink-900 text-cream-50' : 'bg-moss-200 text-moss-800'}`}>
                       {isAdmin ? 'A' : 'M'}
                     </div>
-                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                      isAdmin
-                        ? 'bg-ink-900 text-cream-50 rounded-br-sm'
-                        : 'bg-white border border-cream-200 text-ink-800 rounded-bl-sm shadow-sm'
-                    }`}>
+                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl text-sm leading-relaxed ${isAdmin ? 'bg-ink-900 text-cream-50 rounded-br-sm' : 'bg-white border border-cream-200 text-ink-800 rounded-bl-sm shadow-sm'}`}>
                       <p className="whitespace-pre-wrap">{parseSlackText(m.text)}</p>
                       <p className={`text-[10px] mt-1.5 font-mono ${isAdmin ? 'text-cream-400 text-right' : 'text-ink-300'}`}>
                         {new Date(parseFloat(m.ts) * 1000).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}
@@ -357,41 +361,23 @@ export default function CanliDestekPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Mesaj gönder */}
           <div className="p-4 border-t border-cream-200 bg-white shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-ink-900 flex items-center justify-center text-[10px] font-bold text-cream-50 shrink-0">
-                A
-              </div>
+              <div className="w-8 h-8 rounded-full bg-ink-900 flex items-center justify-center text-[10px] font-bold text-cream-50 shrink-0">A</div>
               <input
                 type="text"
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    sendMessage()
-                  }
-                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
                 placeholder="Müşteriye yanıt yaz... (Enter ile gönder)"
                 className="flex-1 px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-sm text-ink-700 placeholder-ink-300 focus:outline-none focus:border-ink-400 transition-colors"
                 disabled={sending}
               />
-              <button
-                onClick={sendMessage}
-                disabled={sending || !reply.trim()}
-                className="w-11 h-11 rounded-xl bg-ink-900 text-cream-50 flex items-center justify-center hover:bg-ink-700 transition-colors disabled:opacity-40 shrink-0"
-              >
-                {sending ? (
-                  <div className="w-4 h-4 border-2 border-cream-400 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
+              <button onClick={sendMessage} disabled={sending || !reply.trim()} className="w-11 h-11 rounded-xl bg-ink-900 text-cream-50 flex items-center justify-center hover:bg-ink-700 transition-colors disabled:opacity-40 shrink-0">
+                {sending ? <div className="w-4 h-4 border-2 border-cream-400 border-t-transparent rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[10px] text-ink-300 font-mono mt-2 ml-11">
-              → Slack thread → n8n → WhatsApp müşterisine iletilir
-            </p>
+            <p className="text-[10px] text-ink-300 font-mono mt-2 ml-11">→ Slack thread → n8n → WhatsApp müşterisine iletilir</p>
           </div>
         </div>
       ) : (
