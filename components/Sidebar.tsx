@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone } from 'lucide-react'
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
@@ -36,6 +36,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
     { href: '/canli-destek', label: 'Canlı Destek', icon: Headphones, badge: canliCount > 0 ? canliCount : null, urgent: canliCount > 0 },
     { href: '/siparisler', label: 'Siparişler', icon: ShoppingBag, badge: null },
     { href: '/abonelikler', label: 'Abonelikler', icon: Repeat, badge: null },
+    { href: '/reklamlar', label: 'Reklamlar', icon: Megaphone, badge: null },
     { href: '/raporlar', label: 'Raporlar', icon: BarChart3, badge: null },
   ]
 
