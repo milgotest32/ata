@@ -9,7 +9,7 @@ import { tr } from 'date-fns/locale'
 
 type Genel = { tarih: string; gosterim: number; tiklama: number; ctr: number; cpc: number; harcama: number; donusum: number }
 type Kampanya = { kampanya: string; gosterim: number; tiklama: number; ctr: number; cpc: number; harcama: number; donusum: number; roas: number }
-type Keyword = { keyword: string; tiklama: number; ctr: number; cpc: number; harcama: number; kalite_skoru: number }
+type Keyword = { keyword: string; esleme_turu: string; tiklama: number; ctr: number; cpc: number; harcama: number; kalite_skoru: number }
 type Cihaz = { cihaz: string; gosterim: number; tiklama: number; harcama: number }
 
 const COLORS = ['#7c9059', '#c4633f', '#d9c07a', '#928c79']
