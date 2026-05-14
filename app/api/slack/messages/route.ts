@@ -25,6 +25,7 @@ export async function GET(req: Request) {
     text: m.text,
     user: m.user || m.bot_id || 'unknown',
     is_bot: !!m.bot_id,
+    username: m.username || '',
   }))
 
   return NextResponse.json({ messages })
@@ -45,7 +46,12 @@ export async function POST(req: Request) {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ channel, thread_ts, text }),
+    body: JSON.stringify({
+      channel,
+      thread_ts,
+      text,
+      username: 'milgo-admin',
+    }),
   })
 
   const data = await res.json()
