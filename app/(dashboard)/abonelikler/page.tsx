@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Repeat, TrendingUp, Calendar, RefreshCw, DollarSign, Truck, AlertTriangle, CheckCircle2, Droplets, TrendingDown } from 'lucide-react'
+import { Repeat, TrendingUp, Calendar, RefreshCw, DollarSign, Truck, AlertTriangle, CheckCircle2, Droplets, TrendingDown, Send, MessageSquare } from 'lucide-react'
 import { format, nextFriday, addWeeks, startOfDay, differenceInWeeks, isSameDay } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -305,6 +305,9 @@ export default function AboneliklerPage() {
       {/* 8. Teslimat Planlama */}
       {tab === 'planlama' && (
         <div className="space-y-4">
+          {/* Bildirim gönder */}
+          <BildirimPanel aktifSubs={aktifSubs} teslimatPlan={teslimatPlan} />
+
           <div className="bg-white border border-cream-200 rounded-2xl p-4 md:p-6 mb-4">
             <h2 className="font-display text-xl md:text-2xl text-ink-900 mb-1">Teslimat Planı</h2>
             <p className="text-xs text-ink-400 font-mono mb-6">Her Cuma için hazırlanması gereken litre miktarı</p>
@@ -438,6 +441,107 @@ export default function AboneliklerPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function BildirimPanel({ aktifSubs, teslimatPlan }: { aktifSubs: any[], teslimatPlan: any[] }) {
+  const [mesaj, setMesaj] = useState('')
+  const [gonderiyor, setGonderiyor] = useState(false)
+  const [sonuc, setSonuc] = useState<{ ok: boolean; mesaj: string } | null>(null)
+  const [onay, setOnay] = useState(false)
+
+  const buHaftaPlan = teslimatPlan[0]
+  const buHaftaAboneler = aktifSubs.filter(s => s.durum === 'abone')
+
+  const varsayilanMesaj = `Merhaba! 🥛\nBu Cuma (${format(buHaftaPlan?.tarih || new Date(), 'd MMMM', { locale: tr })}) teslimatınız saat 10:00-14:00 arası yapılacaktır.\nSorularınız için bize yazabilirsiniz. İyi günler! 🌿`
+
+  useEffect(() => { setMesaj(varsayilanMesaj) }, [buHaftaPlan?.tarih])
+
+  async function gonder() {
+    if (!onay) { setSonuc({ ok: false, mesaj: 'Lütfen onay kutusunu işaretleyin.' }); return }
+    setGonderiyor(true)
+    setSonuc(null)
+    try {
+      const res = await fetch('/api/bildirim/toplu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mesaj,
+          telefonlar: buHaftaAboneler.map(s => ({ telefon: s.iletisim, ad: s.ad, adet: s.haftalik_adet }))
+        })
+      })
+      const data = await res.json()
+      setSonuc({ ok: data.ok, mesaj: data.mesaj || (data.ok ? 'Bildirimler gönderildi!' : 'Hata oluştu.') })
+      setOnay(false)
+    } catch {
+      setSonuc({ ok: false, mesaj: 'Bağlantı hatası.' })
+    }
+    setGonderiyor(false)
+  }
+
+  return (
+    <div className="bg-white border border-cream-200 rounded-2xl p-4 md:p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-xl bg-moss-100 flex items-center justify-center">
+          <MessageSquare className="w-5 h-5 text-moss-600" strokeWidth={1.5} />
+        </div>
+        <div>
+          <h2 className="font-display text-xl text-ink-900">Teslimat Bildirimi Gönder</h2>
+          <p className="text-xs text-ink-400 font-mono">{buHaftaAboneler.length} aktif aboneye WhatsApp mesajı</p>
+        </div>
+      </div>
+
+      {/* Alıcılar */}
+      <div className="bg-cream-50 border border-cream-200 rounded-xl p-3 mb-4">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-ink-300 mb-2">Alıcılar ({buHaftaAboneler.length})</p>
+        <div className="flex flex-wrap gap-2">
+          {buHaftaAboneler.map(s => (
+            <span key={s.iletisim} className="text-xs bg-white border border-cream-200 px-2.5 py-1 rounded-full text-ink-600 font-mono">
+              {s.ad} · {s.iletisim}
+            </span>
+          ))}
+          {buHaftaAboneler.length === 0 && <span className="text-xs text-ink-300">Bu hafta teslimat yok</span>}
+        </div>
+      </div>
+
+      {/* Mesaj */}
+      <div className="mb-4">
+        <label className="text-[10px] uppercase tracking-[0.2em] text-ink-300 mb-2 block">Mesaj</label>
+        <textarea
+          value={mesaj}
+          onChange={e => setMesaj(e.target.value)}
+          rows={4}
+          className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-sm text-ink-700 focus:outline-none focus:border-moss-400 transition-colors resize-none font-mono"
+        />
+        <p className="text-[10px] text-ink-300 font-mono mt-1">{mesaj.length} karakter</p>
+      </div>
+
+      {/* Onay */}
+      <label className="flex items-center gap-3 cursor-pointer mb-4 p-3 bg-cream-50 border border-cream-200 rounded-xl">
+        <input type="checkbox" checked={onay} onChange={e => setOnay(e.target.checked)} className="w-4 h-4 accent-moss-600" />
+        <span className="text-sm text-ink-600">{buHaftaAboneler.length} kişiye WhatsApp mesajı gönderileceğini onaylıyorum</span>
+      </label>
+
+      {/* Sonuç */}
+      {sonuc && (
+        <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${sonuc.ok ? 'bg-moss-50 border border-moss-200 text-moss-700' : 'bg-ember-50 border border-ember-200 text-ember-700'}`}>
+          {sonuc.ok ? '✅' : '❌'} {sonuc.mesaj}
+        </div>
+      )}
+
+      <button
+        onClick={gonder}
+        disabled={gonderiyor || buHaftaAboneler.length === 0}
+        className="w-full flex items-center justify-center gap-2 py-3 bg-ink-900 text-cream-50 rounded-xl text-sm font-medium hover:bg-ink-700 transition-colors disabled:opacity-40"
+      >
+        {gonderiyor ? (
+          <div className="w-4 h-4 border-2 border-cream-400 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Send className="w-4 h-4" />
+        )}
+        {gonderiyor ? 'Gönderiliyor...' : `${buHaftaAboneler.length} Kişiye Bildirim Gönder`}
+      </button>
     </div>
   )
 }
