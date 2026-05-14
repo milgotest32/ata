@@ -109,9 +109,15 @@ export default function AboneliklerPage() {
           <p className="text-xs uppercase tracking-[0.3em] text-ink-300 mb-2">aylık · her cuma · 4 teslimat</p>
           <h1 className="font-display text-3xl md:text-5xl text-ink-900 tracking-tight">Abonelikler</h1>
         </div>
-        <button onClick={load} className="flex items-center gap-2 text-xs text-ink-400 hover:text-ink-700">
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <a href="/api/teslimat-pdf" target="_blank"
+            className="flex items-center gap-2 text-xs px-3 py-2 bg-ink-900 text-cream-50 rounded-xl hover:bg-ink-700 transition-colors">
+            🖨️ Yazdır
+          </a>
+          <button onClick={load} className="flex items-center gap-2 text-xs text-ink-400 hover:text-ink-700">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </header>
 
       {/* Yenileme uyarısı */}

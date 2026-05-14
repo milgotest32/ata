@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, Session } from '@/lib/supabase'
-import { Search, X, MessageSquare, ShoppingCart, Package } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { Search, X, MessageSquare, ShoppingCart, StickyNote, Trash2, Plus } from 'lucide-react'
+import { formatDistanceToNow, format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
 const INTENT_LABEL: Record<string, string> = {
@@ -17,6 +17,7 @@ const TONE: Record<string, string> = {
   human_handover: '#c4633f', complaint: '#a64d2e', order_create: '#c4a154', other: '#928c79',
 }
 type FilterType = 'all' | 'canli' | 'gpt' | 'kvkk' | 'sepet'
+type Not = { id: number; icerik: string; created_at: string }
 
 export default function KonusmalarPage() {
   const [sessions, setSessions] = useState<Session[]>([])
@@ -24,8 +25,16 @@ export default function KonusmalarPage() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Session | null>(null)
+  const [notlar, setNotlar] = useState<Not[]>([])
+  const [yeniNot, setYeniNot] = useState('')
+  const [notEkleniyor, setNotEkleniyor] = useState(false)
 
   useEffect(() => { load() }, [filter])
+
+  useEffect(() => {
+    if (selected) loadNotlar(selected.phone)
+    else setNotlar([])
+  }, [selected])
 
   async function load() {
     setLoading(true)
@@ -38,6 +47,30 @@ export default function KonusmalarPage() {
     if (filter === 'sepet') list = list.filter(s => s.pending_action && String(s.pending_action).includes('order:'))
     setSessions(list)
     setLoading(false)
+  }
+
+  async function loadNotlar(telefon: string) {
+    const res = await fetch(`/api/musteri-notu?telefon=${telefon}`)
+    const data = await res.json()
+    setNotlar(data.notlar || [])
+  }
+
+  async function notEkle() {
+    if (!yeniNot.trim() || !selected) return
+    setNotEkleniyor(true)
+    await fetch('/api/musteri-notu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telefon: selected.phone, icerik: yeniNot.trim() })
+    })
+    setYeniNot('')
+    await loadNotlar(selected.phone)
+    setNotEkleniyor(false)
+  }
+
+  async function notSil(id: number) {
+    await fetch(`/api/musteri-notu?id=${id}`, { method: 'DELETE' })
+    setNotlar(prev => prev.filter(n => n.id !== id))
   }
 
   const filtered = sessions.filter(s => !search || s.phone.includes(search) || (s.musteri_yazdigi || '').toLowerCase().includes(search.toLowerCase()))
@@ -66,13 +99,11 @@ export default function KonusmalarPage() {
         </div>
       </div>
 
-      {/* Mobil: kart listesi, masaüstü: tablo */}
+      {/* Mobil kart */}
       <div className="md:hidden space-y-2">
-        {loading ? (
-          [1,2,3,4,5].map(i => <div key={i} className="h-20 bg-cream-100 rounded-2xl animate-pulse" />)
-        ) : filtered.map(s => (
-          <div key={s.phone} onClick={() => setSelected(s)}
-            className="bg-white border border-cream-200 rounded-2xl p-4 cursor-pointer hover:border-moss-300 transition-colors">
+        {loading ? [1,2,3,4,5].map(i => <div key={i} className="h-20 bg-cream-100 rounded-2xl animate-pulse" />) :
+        filtered.map(s => (
+          <div key={s.phone} onClick={() => setSelected(s)} className="bg-white border border-cream-200 rounded-2xl p-4 cursor-pointer hover:border-moss-300 transition-colors">
             <div className="flex items-start justify-between mb-2">
               <span className="font-mono text-sm text-ink-900">{s.phone}</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: `${TONE[s.last_intent||'other']}20`, color: TONE[s.last_intent||'other'] }}>
@@ -82,10 +113,8 @@ export default function KonusmalarPage() {
             <p className="text-xs text-ink-500 truncate mb-2">{s.musteri_yazdigi || '—'}</p>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {s.bulundugu_menu === 'canli' ? (
-                  <span className="flex items-center gap-1 text-xs text-ember-600"><span className="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" />Canlı</span>
-                ) : <span className="text-xs text-moss-500">Bot</span>}
-                <span className={`text-xs ${s.kvkk_onay ? 'text-moss-500' : 'text-ember-400'}`}>{s.kvkk_onay ? '✓ KVKK' : '✗ KVKK'}</span>
+                {s.bulundugu_menu === 'canli' ? <span className="flex items-center gap-1 text-xs text-ember-600"><span className="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" />Canlı</span> : <span className="text-xs text-moss-500">Bot</span>}
+                <span className={`text-xs ${s.kvkk_onay ? 'text-moss-500' : 'text-ember-400'}`}>{s.kvkk_onay ? '✓' : '✗'} KVKK</span>
               </div>
               <span className="text-xs text-ink-300 font-mono">{formatDistanceToNow(new Date(s.updated_at), { addSuffix: true, locale: tr })}</span>
             </div>
@@ -96,9 +125,7 @@ export default function KonusmalarPage() {
 
       {/* Masaüstü tablo */}
       <div className="hidden md:block bg-white border border-cream-200 rounded-2xl overflow-hidden">
-        {loading ? (
-          <div className="p-4 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="animate-pulse h-12 bg-cream-100 rounded-xl" />)}</div>
-        ) : (
+        {loading ? <div className="p-4 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="animate-pulse h-12 bg-cream-100 rounded-xl" />)}</div> : (
           <table className="w-full">
             <thead className="bg-cream-50">
               <tr>{['Telefon','Son Mesaj','Niyet','Durum','KVKK','Güncelleme'].map(h => (
@@ -127,32 +154,39 @@ export default function KonusmalarPage() {
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
           <div className="absolute inset-0 bg-ink-900/30 backdrop-blur-sm" />
           <div className="relative w-full max-w-md bg-cream-50 h-full overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
             <div className="sticky top-0 bg-white border-b border-cream-200 z-10 p-4 md:p-6 flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-moss-100 flex items-center justify-center">
-                  <span className="text-base md:text-lg font-display text-moss-700">{selected.phone.slice(-2)}</span>
+                <div className="w-10 h-10 rounded-2xl bg-moss-100 flex items-center justify-center">
+                  <span className="text-base font-display text-moss-700">{selected.phone.slice(-2)}</span>
                 </div>
                 <div>
-                  <div className="font-mono text-sm md:text-base text-ink-900">{selected.phone}</div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="font-mono text-sm text-ink-900">{selected.phone}</div>
+                  <div className="flex items-center gap-2 mt-1">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${selected.bulundugu_menu === 'canli' ? 'bg-ember-100 text-ember-700' : 'bg-moss-100 text-moss-700'}`}>
                       {selected.bulundugu_menu === 'canli' ? '🔴 Canlı' : '🤖 Bot'}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${selected.kvkk_onay ? 'bg-moss-50 text-moss-600' : 'bg-ember-50 text-ember-600'}`}>
-                      {selected.kvkk_onay ? '✓ KVKK' : '✗ KVKK Yok'}
+                      {selected.kvkk_onay ? '✓ KVKK' : '✗ KVKK'}
                     </span>
                   </div>
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-cream-100 text-ink-300"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-4 md:p-6 space-y-3">
+
+            <div className="p-4 md:p-6 space-y-4">
+
+              {/* Son mesaj */}
               {selected.musteri_yazdigi && (
                 <div className="bg-white border border-cream-200 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2"><MessageSquare className="w-3.5 h-3.5 text-ink-300" strokeWidth={1.5} /><span className="text-[10px] uppercase tracking-[0.2em] text-ink-300">Son Mesaj</span></div>
                   <p className="text-sm text-ink-700 italic">"{selected.musteri_yazdigi}"</p>
                 </div>
               )}
+
+              {/* Detaylar */}
               <div className="bg-white border border-cream-200 rounded-xl divide-y divide-cream-100">
                 {[
                   { label: 'Son Niyet', value: INTENT_LABEL[selected.last_intent||'other'] || '—', emoji: '🎯' },
@@ -169,12 +203,51 @@ export default function KonusmalarPage() {
                   </div>
                 ))}
               </div>
+
+              {/* 2. Müşteri Notları */}
+              <div className="bg-white border border-cream-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <StickyNote className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-ink-300">Notlar</span>
+                  <span className="text-[10px] bg-cream-100 text-ink-400 px-1.5 py-0.5 rounded-full font-mono">{notlar.length}</span>
+                </div>
+                <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                  {notlar.length === 0 ? (
+                    <p className="text-xs text-ink-300 font-mono">henüz not yok</p>
+                  ) : notlar.map(n => (
+                    <div key={n.id} className="flex items-start gap-2 bg-cream-50 border border-cream-200 rounded-lg px-3 py-2">
+                      <p className="text-sm text-ink-700 flex-1">{n.icerik}</p>
+                      <button onClick={() => notSil(n.id)} className="text-ink-300 hover:text-ember-500 transition-colors shrink-0 mt-0.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={yeniNot}
+                    onChange={e => setYeniNot(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && notEkle()}
+                    placeholder="Not ekle... (Enter)"
+                    className="flex-1 px-3 py-2 bg-cream-50 border border-cream-200 rounded-lg text-sm text-ink-700 placeholder-ink-300 focus:outline-none focus:border-moss-400"
+                  />
+                  <button onClick={notEkle} disabled={notEkleniyor || !yeniNot.trim()}
+                    className="w-9 h-9 rounded-lg bg-ink-900 text-cream-50 flex items-center justify-center hover:bg-ink-700 transition-colors disabled:opacity-40">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sepet */}
               {selected.pending_action && String(selected.pending_action).includes('order:') && (
                 <div className="bg-moss-50 border border-moss-200 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2"><ShoppingCart className="w-3.5 h-3.5 text-moss-600" strokeWidth={1.5} /><span className="text-[10px] uppercase tracking-[0.2em] text-moss-600">Aktif Sepet</span></div>
                   <p className="text-sm text-moss-700 font-mono break-all">{String(selected.pending_action)}</p>
                 </div>
               )}
+
+              {/* Aksiyonlar */}
               <div className="space-y-2 pt-2">
                 {selected.slack_thread_ts && <a href="/canli-destek" className="w-full flex items-center justify-center gap-2 py-3 bg-ember-600 text-white rounded-xl text-sm font-medium hover:bg-ember-700 transition-colors">💬 Canlı Destek'te Aç →</a>}
                 <button onClick={() => setSelected(null)} className="w-full py-3 bg-ink-900 text-cream-50 rounded-xl text-sm font-medium hover:bg-ink-700 transition-colors">Kapat</button>
