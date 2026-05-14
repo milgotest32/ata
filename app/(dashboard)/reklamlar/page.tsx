@@ -8,7 +8,7 @@ import { format, subDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
 type Genel = { tarih: string; gosterim: number; tiklama: number; ctr: number; cpc: number; harcama: number; donusum: number }
-type Kampanya = { kampanya: string; gosterim: number; tiklama: number; ctr: number; harcama: number; donusum: number; roas: number }
+type Kampanya = { kampanya: string; gosterim: number; tiklama: number; ctr: number; cpc: number; harcama: number; donusum: number; roas: number }
 type Keyword = { keyword: string; tiklama: number; ctr: number; cpc: number; harcama: number; kalite_skoru: number }
 type Cihaz = { cihaz: string; gosterim: number; tiklama: number; harcama: number }
 
