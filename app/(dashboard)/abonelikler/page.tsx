@@ -450,6 +450,8 @@ function BildirimPanel({ aktifSubs, teslimatPlan }: { aktifSubs: any[], teslimat
   const [gonderiyor, setGonderiyor] = useState(false)
   const [sonuc, setSonuc] = useState<{ ok: boolean; mesaj: string } | null>(null)
   const [onay, setOnay] = useState(false)
+  const [gonderildi, setGonderildi] = useState(false)
+  const [mevcutLog, setMevcutLog] = useState<any>(null)
 
   const buHaftaPlan = teslimatPlan[0]
   const buHaftaAboneler = aktifSubs.filter(s => s.durum === 'abone')
@@ -457,6 +459,13 @@ function BildirimPanel({ aktifSubs, teslimatPlan }: { aktifSubs: any[], teslimat
   const varsayilanMesaj = `Merhaba! 🥛\nBu Cuma (${format(buHaftaPlan?.tarih || new Date(), 'd MMMM', { locale: tr })}) teslimatınız saat 10:00-14:00 arası yapılacaktır.\nSorularınız için bize yazabilirsiniz. İyi günler! 🌿`
 
   useEffect(() => { setMesaj(varsayilanMesaj) }, [buHaftaPlan?.tarih])
+
+  useEffect(() => {
+    // Bu hafta gönderildi mi kontrol et
+    fetch('/api/bildirim/toplu').then(r => r.json()).then(d => {
+      if (d.gonderildi) { setGonderildi(true); setMevcutLog(d.log) }
+    })
+  }, [])
 
   async function gonder() {
     if (!onay) { setSonuc({ ok: false, mesaj: 'Lütfen onay kutusunu işaretleyin.' }); return }
@@ -491,6 +500,15 @@ function BildirimPanel({ aktifSubs, teslimatPlan }: { aktifSubs: any[], teslimat
           <p className="text-xs text-ink-400 font-mono">{buHaftaAboneler.length} aktif aboneye WhatsApp mesajı</p>
         </div>
       </div>
+
+      {/* Daha önce gönderildiyse uyarı */}
+      {gonderildi && mevcutLog && (
+        <div className="mb-4 p-4 bg-moss-50 border border-moss-200 rounded-xl">
+          <p className="text-sm text-moss-700 font-medium">✅ Bu hafta bildirim gönderildi</p>
+          <p className="text-xs text-moss-600 font-mono mt-1">{mevcutLog.gonderilen_sayi} kişiye · {new Date(mevcutLog.created_at).toLocaleString('tr')}</p>
+          <p className="text-xs text-moss-500 mt-2">Tekrar göndermek için Supabase'de <span className="font-mono">bildirim_log</span> tablosundan bu haftanın kaydını silin.</p>
+        </div>
+      )}
 
       {/* Alıcılar */}
       <div className="bg-cream-50 border border-cream-200 rounded-xl p-3 mb-4">
@@ -532,7 +550,7 @@ function BildirimPanel({ aktifSubs, teslimatPlan }: { aktifSubs: any[], teslimat
 
       <button
         onClick={gonder}
-        disabled={gonderiyor || buHaftaAboneler.length === 0}
+        disabled={gonderiyor || buHaftaAboneler.length === 0 || gonderildi}
         className="w-full flex items-center justify-center gap-2 py-3 bg-ink-900 text-cream-50 rounded-xl text-sm font-medium hover:bg-ink-700 transition-colors disabled:opacity-40"
       >
         {gonderiyor ? (
@@ -540,7 +558,7 @@ function BildirimPanel({ aktifSubs, teslimatPlan }: { aktifSubs: any[], teslimat
         ) : (
           <Send className="w-4 h-4" />
         )}
-        {gonderiyor ? 'Gönderiliyor...' : `${buHaftaAboneler.length} Kişiye Bildirim Gönder`}
+        {gonderildi ? 'Bu Hafta Gönderildi ✅' : gonderiyor ? 'Gönderiliyor...' : `${buHaftaAboneler.length} Kişiye Bildirim Gönder`}
       </button>
     </div>
   )
