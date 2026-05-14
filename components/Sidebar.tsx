@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import {
   LayoutDashboard,
   MessagesSquare,
@@ -12,24 +14,49 @@ import {
   LogOut,
 } from 'lucide-react'
 
-const items = [
-  { href: '/', label: 'Genel Bakış', icon: LayoutDashboard },
-  { href: '/konusmalar', label: 'Konuşmalar', icon: MessagesSquare },
-  { href: '/canli-destek', label: 'Canlı Destek', icon: Headphones },
-  { href: '/siparisler', label: 'Siparişler', icon: ShoppingBag },
-  { href: '/abonelikler', label: 'Abonelikler', icon: Repeat },
-  { href: '/raporlar', label: 'Raporlar', icon: BarChart3 },
-]
-
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [canliCount, setCanliCount] = useState(0)
+  const [konusmalar, setKonusmalar] = useState(0)
+
+  useEffect(() => {
+    async function loadCounts() {
+      const { data } = await supabase
+        .from('wa_sessions')
+        .select('phone, slack_thread_ts, bulundugu_menu, updated_at')
+
+      const sessions = data || []
+      const canli = sessions.filter(s => s.slack_thread_ts && s.slack_thread_ts !== '').length
+      const bugun = sessions.filter(s => {
+        const d = new Date(s.updated_at)
+        const now = new Date()
+        return d.toDateString() === now.toDateString()
+      }).length
+
+      setCanliCount(canli)
+      setKonusmalar(bugun)
+    }
+
+    loadCounts()
+    const t = setInterval(loadCounts, 30000)
+    return () => clearInterval(t)
+  }, [])
 
   async function logout() {
     await fetch('/api/auth', { method: 'DELETE' })
     router.push('/login')
     router.refresh()
   }
+
+  const items = [
+    { href: '/', label: 'Genel Bakış', icon: LayoutDashboard, badge: null },
+    { href: '/konusmalar', label: 'Konuşmalar', icon: MessagesSquare, badge: konusmalar > 0 ? konusmalar : null },
+    { href: '/canli-destek', label: 'Canlı Destek', icon: Headphones, badge: canliCount > 0 ? canliCount : null, urgent: canliCount > 0 },
+    { href: '/siparisler', label: 'Siparişler', icon: ShoppingBag, badge: null },
+    { href: '/abonelikler', label: 'Abonelikler', icon: Repeat, badge: null },
+    { href: '/raporlar', label: 'Raporlar', icon: BarChart3, badge: null },
+  ]
 
   return (
     <aside className="w-64 shrink-0 bg-ink-900 text-cream-100 min-h-screen sticky top-0 flex flex-col">
@@ -59,10 +86,18 @@ export default function Sidebar() {
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  {active && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-moss-300" />
-                  )}
+                  <span className="text-sm font-medium flex-1">{item.label}</span>
+                  {item.badge !== null ? (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      (item as any).urgent
+                        ? 'bg-ember-500 text-white animate-pulse'
+                        : 'bg-ink-600 text-ink-200'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  ) : active ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-moss-300" />
+                  ) : null}
                 </Link>
               </li>
             )
