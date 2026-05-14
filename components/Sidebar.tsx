@@ -4,17 +4,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  LayoutDashboard,
-  MessagesSquare,
-  Headphones,
-  ShoppingBag,
-  Repeat,
-  BarChart3,
-  LogOut,
-} from 'lucide-react'
+import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X } from 'lucide-react'
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
   const [canliCount, setCanliCount] = useState(0)
@@ -22,22 +14,11 @@ export default function Sidebar() {
 
   useEffect(() => {
     async function loadCounts() {
-      const { data } = await supabase
-        .from('wa_sessions')
-        .select('phone, slack_thread_ts, bulundugu_menu, updated_at')
-
+      const { data } = await supabase.from('wa_sessions').select('phone, slack_thread_ts, bulundugu_menu, updated_at')
       const sessions = data || []
-      const canli = sessions.filter(s => s.slack_thread_ts && s.slack_thread_ts !== '').length
-      const bugun = sessions.filter(s => {
-        const d = new Date(s.updated_at)
-        const now = new Date()
-        return d.toDateString() === now.toDateString()
-      }).length
-
-      setCanliCount(canli)
-      setKonusmalar(bugun)
+      setCanliCount(sessions.filter(s => s.slack_thread_ts && s.slack_thread_ts !== '').length)
+      setKonusmalar(sessions.filter(s => new Date(s.updated_at).toDateString() === new Date().toDateString()).length)
     }
-
     loadCounts()
     const t = setInterval(loadCounts, 30000)
     return () => clearInterval(t)
@@ -59,40 +40,35 @@ export default function Sidebar() {
   ]
 
   return (
-    <aside className="w-64 shrink-0 bg-ink-900 text-cream-100 min-h-screen sticky top-0 flex flex-col">
-      <div className="px-6 py-8 border-b border-ink-700">
-        <div className="font-display text-2xl tracking-tight text-cream-50">
-          milgo<span className="text-moss-300">.</span>
+    <aside className="w-64 h-full bg-ink-900 text-cream-100 flex flex-col">
+      <div className="px-6 py-6 border-b border-ink-700 flex items-center justify-between">
+        <div>
+          <div className="font-display text-2xl tracking-tight text-cream-50">milgo<span className="text-moss-300">.</span></div>
+          <div className="text-[10px] uppercase tracking-[0.25em] text-ink-300 mt-0.5">admin</div>
         </div>
-        <div className="text-[10px] uppercase tracking-[0.25em] text-ink-300 mt-0.5">
-          admin
-        </div>
+        {onClose && (
+          <button onClick={onClose} className="lg:hidden w-8 h-8 flex items-center justify-center text-ink-400 hover:text-cream-50 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-1">
           {items.map((item) => {
             const Icon = item.icon
-            const active =
-              item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`group flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                    active
-                      ? 'bg-moss-700 text-cream-50'
-                      : 'text-ink-200 hover:bg-ink-700 hover:text-cream-50'
-                  }`}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-moss-700 text-cream-50' : 'text-ink-200 hover:bg-ink-700 hover:text-cream-50'}`}
                 >
                   <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
                   <span className="text-sm font-medium flex-1">{item.label}</span>
                   {item.badge !== null ? (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                      (item as any).urgent
-                        ? 'bg-ember-500 text-white animate-pulse'
-                        : 'bg-ink-600 text-ink-200'
-                    }`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${(item as any).urgent ? 'bg-ember-500 text-white animate-pulse' : 'bg-ink-600 text-ink-200'}`}>
                       {item.badge}
                     </span>
                   ) : active ? (
@@ -106,10 +82,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-ink-700">
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-ink-300 hover:text-cream-50 hover:bg-ink-700 transition-all text-sm"
-        >
+        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-ink-300 hover:text-cream-50 hover:bg-ink-700 transition-all text-sm">
           <LogOut className="w-4 h-4" strokeWidth={1.75} />
           Çıkış Yap
         </button>
