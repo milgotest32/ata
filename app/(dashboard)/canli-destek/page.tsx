@@ -3,19 +3,15 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase, Session } from '@/lib/supabase'
 import { Headphones, Clock, X, Send, RefreshCw, ChevronRight } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { tr } from 'date-fns/locale'
 
 type SlackMessage = {
   ts: string
   text: string
   user: string
   is_bot: boolean
-  bot_id?: string
-  subtype?: string
+  username: string
 }
 
-// Slack emoji kodlarını unicode'a çevir
 function parseSlackText(text: string): string {
   return text
     .replace(/:large_green_circle:/g, '🟢')
@@ -29,18 +25,15 @@ function parseSlackText(text: string): string {
     .replace(/:truck:/g, '🚚')
     .replace(/:credit_card:/g, '💳')
     .replace(/:warning:/g, '⚠️')
-    .replace(/\*([^*]+)\*/g, '$1') // bold *text* → text
+    .replace(/\*([^*]+)\*/g, '$1')
 }
 
-// Sistem mesajlarını filtrele
 function isSystemMessage(m: SlackMessage): boolean {
   const text = m.text || ''
   return (
     text.includes('Yeni Canlı Destek Talebi') ||
-    text.includes('Müşteri:') ||
-    text.includes('Telefon:') ||
-    text.includes('olamazsın') ||
-    m.subtype === 'bot_message' && text.includes('Mesaj:')
+    text.includes('was added to') ||
+    (m.is_bot && !m.username && text.includes('Müşteri:'))
   )
 }
 
@@ -87,9 +80,8 @@ export default function CanliDestekPage() {
     setMsgLoading(true)
     const res = await fetch(`/api/slack/messages?thread_ts=${thread_ts}`)
     const data = await res.json()
-    // Sistem mesajlarını filtrele, ilk mesajı (canlı destek bildirimi) atla
     const filtered = (data.messages || [])
-      .slice(1) // ilk mesaj her zaman sistem bildirimi
+      .slice(1)
       .filter((m: SlackMessage) => !isSystemMessage(m))
     setMessages(filtered)
     setMsgLoading(false)
@@ -154,11 +146,14 @@ export default function CanliDestekPage() {
                   onClick={() => setSelected(s)}
                   className={`w-full text-left p-4 border-b border-cream-100 hover:bg-cream-50 transition-colors flex items-center gap-3 ${isSelected ? 'bg-cream-100' : ''}`}
                 >
+                  <div className="w-9 h-9 rounded-full bg-moss-100 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-medium text-moss-700">WA</span>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-mono text-sm text-ink-900 truncate">{s.phone}</div>
                     <div className="text-xs text-ink-400 truncate mt-0.5">{s.musteri_yazdigi || '—'}</div>
-                    <div className={`text-[10px] font-mono mt-1 ${urgent ? 'text-ember-500' : 'text-ink-300'}`}>
-                      <Clock className="w-2.5 h-2.5 inline mr-1" />{waitMinutes}dk{urgent && ' · acil'}
+                    <div className={`text-[10px] font-mono mt-1 flex items-center gap-1 ${urgent ? 'text-ember-500' : 'text-ink-300'}`}>
+                      <Clock className="w-2.5 h-2.5" />{waitMinutes}dk{urgent && ' · acil'}
                     </div>
                   </div>
                   <ChevronRight className="w-3 h-3 text-ink-300 shrink-0" />
@@ -174,10 +169,13 @@ export default function CanliDestekPage() {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <div className="px-6 py-4 border-b border-cream-200 bg-white flex items-center justify-between shrink-0">
-            <div>
-              <div className="font-mono text-ink-900">{selected.phone}</div>
-              <div className="text-xs text-ink-400 mt-0.5">
-                {selected.musteri_yazdigi && `"${selected.musteri_yazdigi}"`}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-moss-100 flex items-center justify-center">
+                <span className="text-xs font-medium text-moss-700">WA</span>
+              </div>
+              <div>
+                <div className="font-mono text-sm text-ink-900">{selected.phone}</div>
+                <div className="text-xs text-ink-400">WhatsApp Müşterisi</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -189,7 +187,7 @@ export default function CanliDestekPage() {
               </button>
               <button
                 onClick={() => endLiveSupport(selected.phone)}
-                className="px-3 py-1.5 text-xs bg-ember-50 text-ember-600 border border-ember-200 rounded-lg hover:bg-ember-100 transition-colors"
+                className="px-3 py-1.5 text-xs bg-ember-50 text-ember-600 border border-ember-200 rounded-lg hover:bg-ember-100 transition-colors font-medium"
               >
                 Bot'a devret
               </button>
@@ -203,32 +201,34 @@ export default function CanliDestekPage() {
           </div>
 
           {/* Mesajlar */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-cream-50">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-cream-50">
             {msgLoading && messages.length === 0 ? (
               <div className="text-center text-ink-300 font-mono text-sm py-8">yükleniyor...</div>
             ) : messages.length === 0 ? (
               <div className="text-center text-ink-300 font-mono text-sm py-8">henüz mesaj yok</div>
             ) : (
               messages.map((m) => {
-                // Bot mesajları = müşteriden gelen (WhatsApp'tan iletilen)
-                // İnsan mesajları = admin'den gelen
-                const isCustomer = m.is_bot
+                // username = "milgo-admin" → admin (sağ, koyu)
+                // diğerleri → müşteri (sol, beyaz)
+                const isAdmin = m.username === 'milgo-admin'
                 return (
-                  <div key={m.ts} className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
-                    {isCustomer && (
-                      <div className="w-6 h-6 rounded-full bg-moss-100 text-moss-600 text-[10px] flex items-center justify-center font-medium mr-2 mt-1 shrink-0">
-                        M
-                      </div>
-                    )}
-                    <div className={`max-w-sm px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      isCustomer
-                        ? 'bg-white border border-cream-200 text-ink-700 rounded-tl-sm'
-                        : 'bg-ink-900 text-cream-50 rounded-tr-sm'
+                  <div key={m.ts} className={`flex items-end gap-2 ${isAdmin ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {/* Avatar */}
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium shrink-0 mb-1 ${
+                      isAdmin ? 'bg-ink-900 text-cream-50' : 'bg-moss-100 text-moss-700'
                     }`}>
-                      {parseSlackText(m.text)}
-                      <div className={`text-[10px] mt-1 font-mono ${isCustomer ? 'text-ink-300' : 'text-cream-400'}`}>
+                      {isAdmin ? 'A' : 'M'}
+                    </div>
+                    {/* Mesaj balonu */}
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      isAdmin
+                        ? 'bg-ink-900 text-cream-50 rounded-br-sm'
+                        : 'bg-white border border-cream-200 text-ink-800 rounded-bl-sm shadow-sm'
+                    }`}>
+                      <p>{parseSlackText(m.text)}</p>
+                      <p className={`text-[10px] mt-1.5 font-mono ${isAdmin ? 'text-cream-400 text-right' : 'text-ink-300'}`}>
                         {new Date(parseFloat(m.ts) * 1000).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
+                      </p>
                     </div>
                   </div>
                 )
@@ -240,23 +240,26 @@ export default function CanliDestekPage() {
           {/* Mesaj gönder */}
           <div className="p-4 border-t border-cream-200 bg-white shrink-0">
             <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full bg-ink-900 flex items-center justify-center text-[10px] font-medium text-cream-50 shrink-0">
+                A
+              </div>
               <input
                 type="text"
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="Müşteriye yanıt yaz... (Enter ile gönder)"
-                className="flex-1 px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-sm text-ink-700 placeholder-ink-300 focus:outline-none focus:border-moss-400 transition-colors"
+                className="flex-1 px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-sm text-ink-700 placeholder-ink-300 focus:outline-none focus:border-ink-400 transition-colors"
               />
               <button
                 onClick={sendMessage}
                 disabled={sending || !reply.trim()}
-                className="w-11 h-11 rounded-xl bg-ink-900 text-cream-50 flex items-center justify-center hover:bg-ink-700 transition-colors disabled:opacity-40"
+                className="w-11 h-11 rounded-xl bg-ink-900 text-cream-50 flex items-center justify-center hover:bg-ink-700 transition-colors disabled:opacity-40 shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-ink-300 font-mono mt-2 ml-1">→ Slack thread → n8n → WhatsApp</p>
+            <p className="text-[10px] text-ink-300 font-mono mt-2 ml-10">→ Slack → n8n → WhatsApp</p>
           </div>
         </div>
       ) : (
