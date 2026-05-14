@@ -88,7 +88,7 @@ export default function DashboardPage() {
     const today = startOfDay(now)
 
     const bugun = list.filter((s) => new Date(s.updated_at) >= today).length
-    const canli = list.filter((s) => s.bulundugu_menu === 'canli').length
+    const canli = list.filter((s) => s.last_intent === 'human_handover' || s.bulundugu_menu === 'canli').length
     const kvkkOnayli = list.filter((s) => s.kvkk_onay === true).length
     const kvkkOranı = list.length ? Math.round((kvkkOnayli / list.length) * 100) : 0
 

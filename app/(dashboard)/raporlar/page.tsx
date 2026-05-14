@@ -2,21 +2,36 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, Session } from '@/lib/supabase'
+import StatCard from '@/components/StatCard'
 import {
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
+  MessagesSquare,
+  Users,
+  Headphones,
+  CheckCircle2,
+  TrendingUp,
+  Clock,
+} from 'lucide-react'
+import {
+  BarChart,
+  Bar,
   ResponsiveContainer,
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid,
-  Legend,
+  Cell,
 } from 'recharts'
-import { format, subDays, startOfDay } from 'date-fns'
+import { formatDistanceToNow, format, startOfDay, subDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
+
+type Stats = {
+  toplam: number
+  bugun: number
+  canli: number
+  kvkkOnayli: number
+  kvkkOranı: number
+  son24Saat: { saat: string; sayi: number }[]
+  intentDagilimi: { intent: string; count: number }[]
+}
 
 const INTENT_LABEL: Record<string, string> = {
   greeting: 'Selamlama',
@@ -34,272 +49,312 @@ const INTENT_LABEL: Record<string, string> = {
   other: 'Diğer',
 }
 
-const COLORS = ['#7c9059', '#a8b885', '#d9c07a', '#c4a154', '#d97757', '#c4633f', '#928c79', '#5a7041']
+const TONE: Record<string, string> = {
+  greeting: '#7c9059',
+  products: '#a8b885',
+  product_detail: '#cfd9b4',
+  order_status: '#d9c07a',
+  order_create: '#c4a154',
+  subscription: '#d97757',
+  human_handover: '#c4633f',
+  complaint: '#a64d2e',
+  brand_info: '#928c79',
+  usage_question: '#c8c4b7',
+  menu: '#3d3a30',
+  smalltalk: '#e8d9a8',
+  other: '#5a7041',
+}
 
-export default function RaporlarPage() {
+export default function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     load()
+    const t = setInterval(load, 30000)
+    return () => clearInterval(t)
   }, [])
 
   async function load() {
-    const { data } = await supabase
+    const { data: all } = await supabase
       .from('wa_sessions')
       .select('*')
       .order('updated_at', { ascending: false })
-      .limit(1000)
-    setSessions((data || []) as Session[])
+      .limit(500)
+
+    const list = (all || []) as Session[]
+    const now = new Date()
+    const today = startOfDay(now)
+
+    const bugun = list.filter((s) => new Date(s.updated_at) >= today).length
+    const canli = list.filter((s) => s.last_intent === 'human_handover' || s.bulundugu_menu === 'canli').length
+    const kvkkOnayli = list.filter((s) => s.kvkk_onay === true).length
+    const kvkkOranı = list.length ? Math.round((kvkkOnayli / list.length) * 100) : 0
+
+    // Son 24 saat — saatlik
+    const buckets: Record<string, number> = {}
+    for (let i = 23; i >= 0; i--) {
+      const h = new Date(now.getTime() - i * 60 * 60 * 1000)
+      const key = format(h, 'HH:00')
+      buckets[key] = 0
+    }
+    list.forEach((s) => {
+      const d = new Date(s.updated_at)
+      const diff = (now.getTime() - d.getTime()) / (60 * 60 * 1000)
+      if (diff < 24) {
+        const key = format(d, 'HH:00')
+        if (buckets[key] !== undefined) buckets[key]++
+      }
+    })
+
+    const son24Saat = Object.entries(buckets).map(([saat, sayi]) => ({
+      saat,
+      sayi,
+    }))
+
+    // Intent dağılımı
+    const intentMap: Record<string, number> = {}
+    list.forEach((s) => {
+      const i = s.last_intent || 'other'
+      intentMap[i] = (intentMap[i] || 0) + 1
+    })
+    const intentDagilimi = Object.entries(intentMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([intent, count]) => ({ intent, count }))
+
+    setStats({
+      toplam: list.length,
+      bugun,
+      canli,
+      kvkkOnayli,
+      kvkkOranı,
+      son24Saat,
+      intentDagilimi,
+    })
+    setSessions(list.slice(0, 8))
     setLoading(false)
   }
 
-  // Son 14 gün günlük aktif kullanıcı
-  const daily: { tarih: string; aktif: number; yeni: number }[] = []
-  const now = new Date()
-  for (let i = 13; i >= 0; i--) {
-    const day = startOfDay(subDays(now, i))
-    const dayEnd = new Date(day.getTime() + 24 * 60 * 60 * 1000)
-    const aktif = sessions.filter((s) => {
-      const u = new Date(s.updated_at)
-      return u >= day && u < dayEnd
-    }).length
-    const yeni = sessions.filter((s) => {
-      const c = s.created_at ? new Date(s.created_at) : null
-      return c && c >= day && c < dayEnd
-    }).length
-    daily.push({
-      tarih: format(day, 'd MMM', { locale: tr }),
-      aktif,
-      yeni,
-    })
-  }
-
-  // Intent dağılımı (pie)
-  const intentMap: Record<string, number> = {}
-  sessions.forEach((s) => {
-    const k = s.last_intent || 'other'
-    intentMap[k] = (intentMap[k] || 0) + 1
-  })
-  const intentData = Object.entries(intentMap)
-    .map(([name, value]) => ({
-      name: INTENT_LABEL[name] || name,
-      value,
-    }))
-    .sort((a, b) => b.value - a.value)
-
-  // KVKK
-  const kvkkOnayli = sessions.filter((s) => s.kvkk_onay).length
-  const kvkkData = [
-    { name: 'Onaylı', value: kvkkOnayli, fill: '#7c9059' },
-    { name: 'Onaysız', value: sessions.length - kvkkOnayli, fill: '#d9c07a' },
-  ]
-
-  // Cevaplanamayan mesajlar
-  const fallback = sessions.filter(
-    (s) => s.last_intent === 'other' || !s.last_intent
-  )
-
   if (loading) {
     return (
-      <div className="p-10 text-ink-300 font-mono text-sm">yükleniyor...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-ink-300 font-mono text-sm animate-pulse">
+          yükleniyor...
+        </div>
+      </div>
     )
   }
 
   return (
     <div className="p-10 max-w-7xl mx-auto">
-      <header className="mb-10">
-        <p className="text-xs uppercase tracking-[0.3em] text-ink-300 mb-3">
-          {sessions.length} kayıt üzerinden
-        </p>
-        <h1 className="font-display text-5xl text-ink-900 tracking-tight">
-          Raporlar
-        </h1>
-      </header>
-
-      {/* 14 günlük trafik */}
-      <div className="bg-white border border-cream-200 rounded-2xl p-8 mb-8 animate-fade-in">
-        <div className="flex items-baseline justify-between mb-8">
-          <h2 className="font-display text-2xl text-ink-900 tracking-tight">
-            Son 14 Gün
-          </h2>
-          <div className="flex gap-4 text-xs">
-            <span className="flex items-center gap-2 text-ink-500">
-              <span className="w-3 h-3 rounded-full bg-moss-400" />
-              Aktif Kullanıcı
-            </span>
-            <span className="flex items-center gap-2 text-ink-500">
-              <span className="w-3 h-3 rounded-full bg-cream-400" />
-              Yeni Kayıt
-            </span>
+      {/* Hero header */}
+      <header className="mb-12 animate-slide-up">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-ink-300 font-medium mb-3">
+              {format(new Date(), "EEEE, d MMMM yyyy", { locale: tr })}
+            </p>
+            <h1 className="font-display text-5xl text-ink-900 tracking-tight">
+              Genel Bakış
+            </h1>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-ink-500">
+            <span className="w-2 h-2 rounded-full bg-moss-400 animate-pulse-soft" />
+            <span className="font-mono">canlı yayın</span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={320}>
-          <AreaChart data={daily} margin={{ top: 8, right: 16, bottom: 8, left: -10 }}>
-            <defs>
-              <linearGradient id="aktifGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#7c9059" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#7c9059" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="yeniGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#d9c07a" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#d9c07a" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e8d9a8" opacity={0.5} />
-            <XAxis
-              dataKey="tarih"
-              tick={{ fontSize: 11, fill: '#928c79' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: '#928c79' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                background: '#fdfcf7',
-                border: '1px solid #e8d9a8',
-                borderRadius: '8px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '12px',
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="aktif"
-              stroke="#7c9059"
-              strokeWidth={2}
-              fill="url(#aktifGrad)"
-            />
-            <Area
-              type="monotone"
-              dataKey="yeni"
-              stroke="#d9c07a"
-              strokeWidth={2}
-              fill="url(#yeniGrad)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+      </header>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12 stagger">
+        <StatCard
+          label="Toplam Müşteri"
+          value={stats!.toplam}
+          delta={`${stats!.bugun} bugün aktif`}
+          icon={Users}
+        />
+        <StatCard
+          label="Aktif Konuşma"
+          value={stats!.bugun}
+          delta="son 24 saatte"
+          icon={MessagesSquare}
+          tone="moss"
+        />
+        <StatCard
+          label="Canlı Destek"
+          value={stats!.canli}
+          delta={stats!.canli > 0 ? 'temsilci bekliyor' : 'kuyruk boş'}
+          icon={Headphones}
+          tone={stats!.canli > 0 ? 'ember' : 'default'}
+        />
+        <StatCard
+          label="KVKK Onayı"
+          value={`%${stats!.kvkkOranı}`}
+          delta={`${stats!.kvkkOnayli} onaylı kullanıcı`}
+          icon={CheckCircle2}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Intent pie */}
-        <div className="bg-white border border-cream-200 rounded-2xl p-8 animate-fade-in">
-          <h2 className="font-display text-2xl text-ink-900 mb-6 tracking-tight">
-            Niyet Dağılımı
-          </h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={intentData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={110}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {intentData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-12">
+        {/* 24h activity */}
+        <div className="lg:col-span-2 bg-white border border-cream-200 rounded-2xl p-8 animate-fade-in">
+          <div className="flex items-baseline justify-between mb-8">
+            <h2 className="font-display text-2xl text-ink-900 tracking-tight">
+              Son 24 Saat
+            </h2>
+            <span className="text-xs uppercase tracking-[0.2em] text-ink-300">
+              <TrendingUp className="inline w-3 h-3 mr-1" strokeWidth={1.5} />
+              saatlik trafik
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart
+              data={stats!.son24Saat}
+              margin={{ top: 8, right: 8, bottom: 8, left: -10 }}
+            >
+              <XAxis
+                dataKey="saat"
+                tick={{ fontSize: 10, fill: '#928c79' }}
+                axisLine={false}
+                tickLine={false}
+                interval={2}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: '#928c79' }}
+                axisLine={false}
+                tickLine={false}
+              />
               <Tooltip
+                cursor={{ fill: 'rgba(124,144,89,0.08)' }}
                 contentStyle={{
                   background: '#fdfcf7',
                   border: '1px solid #e8d9a8',
                   borderRadius: '8px',
+                  fontFamily: 'JetBrains Mono, monospace',
                   fontSize: '12px',
                 }}
               />
-              <Legend
-                wrapperStyle={{ fontSize: '11px', paddingTop: '20px' }}
-              />
-            </PieChart>
+              <Bar dataKey="sayi" fill="#7c9059" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* KVKK */}
+        {/* Intent breakdown */}
         <div className="bg-white border border-cream-200 rounded-2xl p-8 animate-fade-in">
-          <h2 className="font-display text-2xl text-ink-900 mb-6 tracking-tight">
-            KVKK Onay Oranı
+          <h2 className="font-display text-2xl text-ink-900 tracking-tight mb-8">
+            Niyet Dağılımı
           </h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={kvkkData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={110}
-                dataKey="value"
-                label={({ name, percent }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
-                }
-              >
-                {kvkkData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="space-y-3">
+            {stats!.intentDagilimi.slice(0, 6).map((item) => {
+              const total = stats!.intentDagilimi.reduce((a, b) => a + b.count, 0)
+              const pct = total ? Math.round((item.count / total) * 100) : 0
+              return (
+                <div key={item.intent}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-ink-700 font-medium">
+                      {INTENT_LABEL[item.intent] || item.intent}
+                    </span>
+                    <span className="text-ink-300 font-mono">{item.count}</span>
+                  </div>
+                  <div className="h-1.5 bg-cream-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${pct}%`,
+                        background: TONE[item.intent] || '#7c9059',
+                      }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Cevaplanamayan */}
+      {/* Recent sessions */}
       <div className="bg-white border border-cream-200 rounded-2xl overflow-hidden animate-fade-in">
         <div className="px-8 py-6 border-b border-cream-200 flex items-baseline justify-between">
-          <div>
-            <h2 className="font-display text-2xl text-ink-900 tracking-tight">
-              Cevaplanamayan Mesajlar
-            </h2>
-            <p className="text-xs text-ink-500 mt-1">
-              Bot anlamadı veya "other" sınıfına düştü — sistem eğitimi için
-              gözden geçirin
-            </p>
-          </div>
-          <span className="text-3xl font-display text-ember-500">
-            {fallback.length}
-          </span>
+          <h2 className="font-display text-2xl text-ink-900 tracking-tight">
+            Son Konuşmalar
+          </h2>
+          <a
+            href="/konusmalar"
+            className="text-xs uppercase tracking-[0.2em] text-moss-600 hover:text-moss-700"
+          >
+            Hepsini Gör →
+          </a>
         </div>
         <table className="w-full">
-          <thead className="bg-cream-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-[10px] uppercase tracking-[0.2em] text-ink-300">
-                Telefon
+          <thead>
+            <tr className="bg-cream-50 text-left">
+              <th className="px-8 py-3 text-[10px] uppercase tracking-[0.2em] text-ink-300 font-medium">
+                Müşteri
               </th>
-              <th className="px-6 py-3 text-left text-[10px] uppercase tracking-[0.2em] text-ink-300">
-                Müşteri Mesajı
+              <th className="px-8 py-3 text-[10px] uppercase tracking-[0.2em] text-ink-300 font-medium">
+                Son Mesaj
               </th>
-              <th className="px-6 py-3 text-left text-[10px] uppercase tracking-[0.2em] text-ink-300">
-                Tarih
+              <th className="px-8 py-3 text-[10px] uppercase tracking-[0.2em] text-ink-300 font-medium">
+                Niyet
+              </th>
+              <th className="px-8 py-3 text-[10px] uppercase tracking-[0.2em] text-ink-300 font-medium">
+                Durum
+              </th>
+              <th className="px-8 py-3 text-[10px] uppercase tracking-[0.2em] text-ink-300 font-medium">
+                Zaman
               </th>
             </tr>
           </thead>
           <tbody>
-            {fallback.slice(0, 20).map((s) => (
+            {sessions.map((s) => (
               <tr
                 key={s.phone}
-                className="border-t border-cream-100 hover:bg-cream-50"
+                className="border-t border-cream-100 hover:bg-cream-50 transition-colors"
               >
-                <td className="px-6 py-3 font-mono text-sm text-ink-500">
+                <td className="px-8 py-4 font-mono text-sm text-ink-700">
                   {s.phone}
                 </td>
-                <td className="px-6 py-3 text-sm text-ink-700">
+                <td className="px-8 py-4 text-sm text-ink-500 max-w-xs truncate">
                   {s.musteri_yazdigi || '—'}
                 </td>
-                <td className="px-6 py-3 text-xs text-ink-300 font-mono">
-                  {format(new Date(s.updated_at), 'd MMM HH:mm', { locale: tr })}
+                <td className="px-8 py-4">
+                  <span
+                    className="inline-flex px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wide font-medium"
+                    style={{
+                      background: `${TONE[s.last_intent || 'other']}20`,
+                      color: TONE[s.last_intent || 'other'],
+                    }}
+                  >
+                    {INTENT_LABEL[s.last_intent || 'other'] || 'Diğer'}
+                  </span>
+                </td>
+                <td className="px-8 py-4">
+                  {s.bulundugu_menu === 'canli' ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-ember-600 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" />
+                      Canlı Destek
+                    </span>
+                  ) : (
+                    <span className="text-xs text-moss-500">Bot Modunda</span>
+                  )}
+                </td>
+                <td className="px-8 py-4 text-xs text-ink-300 font-mono">
+                  {formatDistanceToNow(new Date(s.updated_at), {
+                    addSuffix: true,
+                    locale: tr,
+                  })}
                 </td>
               </tr>
             ))}
-            {fallback.length === 0 && (
+            {sessions.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-sm text-ink-300">
-                  Cevaplanamayan mesaj yok — bot iyi durumda 🤍
+                <td
+                  colSpan={5}
+                  className="px-8 py-12 text-center text-ink-300 font-mono text-sm"
+                >
+                  henüz konuşma yok
                 </td>
               </tr>
             )}

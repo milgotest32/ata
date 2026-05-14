@@ -19,5 +19,4 @@ export type Session = {
   slack_thread_ts: string | null
   last_products: any
   updated_at: string
-  created_at: string
 }
