@@ -11,6 +11,37 @@ type SlackMessage = {
   text: string
   user: string
   is_bot: boolean
+  bot_id?: string
+  subtype?: string
+}
+
+// Slack emoji kodlarını unicode'a çevir
+function parseSlackText(text: string): string {
+  return text
+    .replace(/:large_green_circle:/g, '🟢')
+    .replace(/:envelope_with_arrow:/g, '📩')
+    .replace(/:wave:/g, '👋')
+    .replace(/:white_check_mark:/g, '✅')
+    .replace(/:x:/g, '❌')
+    .replace(/:telephone_receiver:/g, '📞')
+    .replace(/:memo:/g, '📝')
+    .replace(/:package:/g, '📦')
+    .replace(/:truck:/g, '🚚')
+    .replace(/:credit_card:/g, '💳')
+    .replace(/:warning:/g, '⚠️')
+    .replace(/\*([^*]+)\*/g, '$1') // bold *text* → text
+}
+
+// Sistem mesajlarını filtrele
+function isSystemMessage(m: SlackMessage): boolean {
+  const text = m.text || ''
+  return (
+    text.includes('Yeni Canlı Destek Talebi') ||
+    text.includes('Müşteri:') ||
+    text.includes('Telefon:') ||
+    text.includes('olamazsın') ||
+    m.subtype === 'bot_message' && text.includes('Mesaj:')
+  )
 }
 
 export default function CanliDestekPage() {
@@ -56,7 +87,11 @@ export default function CanliDestekPage() {
     setMsgLoading(true)
     const res = await fetch(`/api/slack/messages?thread_ts=${thread_ts}`)
     const data = await res.json()
-    setMessages(data.messages || [])
+    // Sistem mesajlarını filtrele, ilk mesajı (canlı destek bildirimi) atla
+    const filtered = (data.messages || [])
+      .slice(1) // ilk mesaj her zaman sistem bildirimi
+      .filter((m: SlackMessage) => !isSystemMessage(m))
+    setMessages(filtered)
     setMsgLoading(false)
   }
 
@@ -89,20 +124,17 @@ export default function CanliDestekPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-0px)] overflow-hidden">
-      {/* Sol panel — konuşma listesi */}
+    <div className="flex h-screen overflow-hidden">
+      {/* Sol panel */}
       <div className="w-80 border-r border-cream-200 flex flex-col bg-white shrink-0">
         <div className="p-6 border-b border-cream-100">
-          <p className="text-xs uppercase tracking-[0.3em] text-ink-300 mb-1">
-            {sessions.length} aktif
-          </p>
+          <p className="text-xs uppercase tracking-[0.3em] text-ink-300 mb-1">{sessions.length} aktif</p>
           <h1 className="font-display text-2xl text-ink-900">Canlı Destek</h1>
           <div className="flex items-center gap-1.5 mt-2">
             <span className="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" />
             <span className="text-[10px] font-mono text-ink-300">otomatik · 15s</span>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-6 text-ink-300 font-mono text-sm">yükleniyor...</div>
@@ -113,28 +145,20 @@ export default function CanliDestekPage() {
             </div>
           ) : (
             sessions.map((s) => {
-              const waitMinutes = Math.floor(
-                (Date.now() - new Date(s.updated_at).getTime()) / 60000
-              )
+              const waitMinutes = Math.floor((Date.now() - new Date(s.updated_at).getTime()) / 60000)
               const urgent = waitMinutes > 5
               const isSelected = selected?.phone === s.phone
               return (
                 <button
                   key={s.phone}
                   onClick={() => setSelected(s)}
-                  className={`w-full text-left p-4 border-b border-cream-100 hover:bg-cream-50 transition-colors flex items-center gap-3 ${
-                    isSelected ? 'bg-cream-100' : ''
-                  }`}
+                  className={`w-full text-left p-4 border-b border-cream-100 hover:bg-cream-50 transition-colors flex items-center gap-3 ${isSelected ? 'bg-cream-100' : ''}`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="font-mono text-sm text-ink-900 truncate">{s.phone}</div>
-                    <div className="text-xs text-ink-400 truncate mt-0.5">
-                      {s.musteri_yazdigi || '—'}
-                    </div>
+                    <div className="text-xs text-ink-400 truncate mt-0.5">{s.musteri_yazdigi || '—'}</div>
                     <div className={`text-[10px] font-mono mt-1 ${urgent ? 'text-ember-500' : 'text-ink-300'}`}>
-                      <Clock className="w-2.5 h-2.5 inline mr-1" />
-                      {waitMinutes}dk
-                      {urgent && ' · acil'}
+                      <Clock className="w-2.5 h-2.5 inline mr-1" />{waitMinutes}dk{urgent && ' · acil'}
                     </div>
                   </div>
                   <ChevronRight className="w-3 h-3 text-ink-300 shrink-0" />
@@ -145,7 +169,7 @@ export default function CanliDestekPage() {
         </div>
       </div>
 
-      {/* Sağ panel — mesajlaşma */}
+      {/* Sağ panel */}
       {selected ? (
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
@@ -153,7 +177,7 @@ export default function CanliDestekPage() {
             <div>
               <div className="font-mono text-ink-900">{selected.phone}</div>
               <div className="text-xs text-ink-400 mt-0.5">
-                Slack thread · {selected.slack_thread_ts?.slice(0, 12)}...
+                {selected.musteri_yazdigi && `"${selected.musteri_yazdigi}"`}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -183,27 +207,32 @@ export default function CanliDestekPage() {
             {msgLoading && messages.length === 0 ? (
               <div className="text-center text-ink-300 font-mono text-sm py-8">yükleniyor...</div>
             ) : messages.length === 0 ? (
-              <div className="text-center text-ink-300 font-mono text-sm py-8">mesaj yok</div>
+              <div className="text-center text-ink-300 font-mono text-sm py-8">henüz mesaj yok</div>
             ) : (
-              messages.map((m) => (
-                <div
-                  key={m.ts}
-                  className={`flex ${m.is_bot ? 'justify-start' : 'justify-end'}`}
-                >
-                  <div
-                    className={`max-w-sm px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      m.is_bot
+              messages.map((m) => {
+                // Bot mesajları = müşteriden gelen (WhatsApp'tan iletilen)
+                // İnsan mesajları = admin'den gelen
+                const isCustomer = m.is_bot
+                return (
+                  <div key={m.ts} className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
+                    {isCustomer && (
+                      <div className="w-6 h-6 rounded-full bg-moss-100 text-moss-600 text-[10px] flex items-center justify-center font-medium mr-2 mt-1 shrink-0">
+                        M
+                      </div>
+                    )}
+                    <div className={`max-w-sm px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      isCustomer
                         ? 'bg-white border border-cream-200 text-ink-700 rounded-tl-sm'
                         : 'bg-ink-900 text-cream-50 rounded-tr-sm'
-                    }`}
-                  >
-                    {m.text}
-                    <div className={`text-[10px] mt-1 font-mono ${m.is_bot ? 'text-ink-300' : 'text-cream-400'}`}>
-                      {new Date(parseFloat(m.ts) * 1000).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}
+                    }`}>
+                      {parseSlackText(m.text)}
+                      <div className={`text-[10px] mt-1 font-mono ${isCustomer ? 'text-ink-300' : 'text-cream-400'}`}>
+                        {new Date(parseFloat(m.ts) * 1000).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -227,9 +256,7 @@ export default function CanliDestekPage() {
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-ink-300 font-mono mt-2 ml-1">
-              → Slack thread'ine gönderilir → n8n → WhatsApp'a iletilir
-            </p>
+            <p className="text-[10px] text-ink-300 font-mono mt-2 ml-1">→ Slack thread → n8n → WhatsApp</p>
           </div>
         </div>
       ) : (
