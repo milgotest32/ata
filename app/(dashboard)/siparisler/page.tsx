@@ -227,11 +227,11 @@ export default function SiparislerPage() {
         filtered.map(o => (
           <div key={o.id} onClick={() => setSelected(o)} className="bg-white border border-cream-200 rounded-2xl p-4 cursor-pointer hover:border-moss-300 transition-colors">
             <div className="flex items-start justify-between mb-2">
-              <div>
-                <span className="font-mono text-sm font-medium text-ink-900">{o.name}</span>
-                <span className="text-xs text-ink-400 ml-2">{o.customer_name || ""}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-ink-900">{o.customer_name || '—'}</div>
+                <div className="text-xs text-ink-400 font-mono mt-0.5">{o.name}</div>
               </div>
-              <span className="font-mono text-sm font-medium text-ink-900">{parseFloat(o.total_price).toLocaleString('tr')} TL</span>
+              <span className="font-mono text-sm font-bold text-ink-900 ml-3 shrink-0">{parseFloat(o.total_price).toLocaleString('tr')} TL</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[o.financial_status] || 'bg-cream-100 text-ink-500'}`}>{STATUS_LABEL[o.financial_status]}</span>
