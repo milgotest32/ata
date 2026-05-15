@@ -131,22 +131,23 @@ export default function CanliDestekPage() {
     const filtered = (data.messages || []).filter((m: SlackMessage, i: number) => !isSystemMessage(m, i))
 
     const lastTs = filtered.length > 0 ? filtered[filtered.length - 1].ts : null
-    if (lastTs && lastMsgTs[thread_ts] && lastTs !== lastMsgTs[thread_ts]) {
-      const newMsgs = filtered.filter(
-        (m: SlackMessage) => m.ts > lastMsgTs[thread_ts] && m.username !== 'milgo-admin'
-      )
-      if (newMsgs.length > 0) {
-        notify('💬 Yeni Mesaj', newMsgs[newMsgs.length - 1].text.slice(0, 60))
-        if (selected?.slack_thread_ts !== thread_ts) {
-          setUnread(prev => ({ ...prev, [thread_ts]: (prev[thread_ts] || 0) + newMsgs.length }))
+    setLastMsgTs(prev => {
+      const prevTs = prev[thread_ts]
+      if (lastTs && prevTs && lastTs !== prevTs) {
+        const newMsgs = filtered.filter(
+          (m: SlackMessage) => m.ts > prevTs && m.username !== 'milgo-admin'
+        )
+        if (newMsgs.length > 0) {
+          notify('💬 Yeni Mesaj', newMsgs[newMsgs.length - 1].text.slice(0, 60))
+          setUnread(u => ({ ...u, [thread_ts]: (u[thread_ts] || 0) + newMsgs.length }))
         }
       }
-    }
-    if (lastTs) setLastMsgTs(prev => ({ ...prev, [thread_ts]: lastTs }))
+      return lastTs ? { ...prev, [thread_ts]: lastTs } : prev
+    })
 
     setMessages(filtered)
     if (!silent) setMsgLoading(false)
-  }, [lastMsgTs, selected, notifOn])
+  }, [notifOn])
 
   useEffect(() => {
     if (!selected?.slack_thread_ts) return

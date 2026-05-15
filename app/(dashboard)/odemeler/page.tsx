@@ -76,16 +76,16 @@ export default function OdemelerPage() {
   }).sort((a, b) => b.toplamGelir - a.toplamGelir)
 
   // Kayıp analizi — bitti durumundakiler
-  const kayiplar = aboneler.filter(a => {
-    const bilgi = hesaplaTeslimat(a)
-    return bilgi.durum === 'bitti'
-  })
-
   function hesaplaTeslimat(sub: Abonelik) {
     const baslangic = new Date(sub.created_at)
     const haftalar = differenceInWeeks(new Date(), baslangic) + 1
     return { durum: haftalar > 4 ? 'bitti' : 'devam' }
   }
+
+  const kayiplar = aboneler.filter(a => {
+    const bilgi = hesaplaTeslimat(a)
+    return bilgi.durum === 'bitti'
+  })
 
   return (
     <div className="p-4 md:p-10 max-w-7xl mx-auto">
