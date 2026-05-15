@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone } from 'lucide-react'
 
-export default function Sidebar({ onClose }: { onClose?: () => void }) {
+export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const [canliCount, setCanliCount] = useState(0)
