@@ -16,66 +16,69 @@ export async function GET(req: Request) {
     return NextResponse.json({ orders: [], error: 'Shopify yapılandırılmamış' })
   }
 
-  // Tek sipariş detayı
   if (id) {
-    const res = await fetch(`${SHOPIFY_URL()}/orders/${id}.json?fields=id,order_number,name,email,phone,total_price,subtotal_price,total_tax,currency,financial_status,fulfillment_status,created_at,updated_at,tags,note,line_items,shipping_address,billing_address,fulfillments,refunds,customer`, {
-      headers: HEADERS()
-    })
+    const res = await fetch(`${SHOPIFY_URL()}/orders/${id}.json`, { headers: HEADERS() })
     if (!res.ok) return NextResponse.json({ order: null, error: res.status })
     const data = await res.json()
-    return NextResponse.json({ order: data.order })
+    const o = data.order
+    return NextResponse.json({ order: mapOrder(o) })
   }
 
-  // Sipariş listesi
   try {
     const res = await fetch(
-      `${SHOPIFY_URL()}/orders.json?status=any&limit=50&fields=id,order_number,name,email,phone,total_price,currency,financial_status,fulfillment_status,created_at,tags,note,line_items,shipping_address,fulfillments,refunds,customer`,
+      `${SHOPIFY_URL()}/orders.json?status=any&limit=50`,
       { headers: HEADERS(), next: { revalidate: 60 } }
     )
     if (!res.ok) return NextResponse.json({ orders: [], error: res.status })
     const data = await res.json()
-
-    const orders = (data.orders || []).map((o: any) => ({
-      id: o.id,
-      order_number: o.order_number,
-      name: o.name,
-      email: o.email || o.customer?.email,
-      phone: o.phone || o.customer?.phone,
-      customer_name: (() => {
-        if (o.customer?.first_name || o.customer?.last_name) {
-          return [o.customer.first_name, o.customer.last_name].filter(Boolean).join(' ')
-        }
-        if (o.shipping_address?.name) return o.shipping_address.name
-        if (o.billing_address?.name) return o.billing_address.name
-        if (o.customer?.email) return o.customer.email
-        return ''
-      })(),
-      customer_id: o.customer?.id,
-      total_price: o.total_price,
-      currency: o.currency,
-      financial_status: o.financial_status,
-      fulfillment_status: o.fulfillment_status,
-      created_at: o.created_at,
-      tags: o.tags,
-      note: o.note,
-      shipping_address: o.shipping_address,
-      line_items: o.line_items?.map((li: any) => ({
-        id: li.id,
-        title: li.title,
-        quantity: li.quantity,
-        price: li.price,
-        sku: li.sku,
-        variant_title: li.variant_title,
-      })) || [],
-      fulfillments: o.fulfillments || [],
-      has_refund: (o.refunds || []).length > 0,
-      tracking_number: o.fulfillments?.[0]?.tracking_number || null,
-      tracking_url: o.fulfillments?.[0]?.tracking_url || null,
-    }))
-
-    return NextResponse.json({ orders })
+    return NextResponse.json({ orders: (data.orders || []).map(mapOrder) })
   } catch (e: any) {
     return NextResponse.json({ orders: [], error: e.message })
+  }
+}
+
+function mapOrder(o: any) {
+  // Müşteri adını tüm kaynaklardan bul
+  const customerName = (() => {
+    const fn = o.customer?.first_name || ''
+    const ln = o.customer?.last_name || ''
+    const fullName = [fn, ln].filter(Boolean).join(' ').trim()
+    if (fullName) return fullName
+    if (o.shipping_address?.name) return o.shipping_address.name
+    if (o.billing_address?.name) return o.billing_address.name
+    if (o.customer?.email) return o.customer.email
+    return ''
+  })()
+
+  return {
+    id: o.id,
+    order_number: o.order_number,
+    name: o.name,
+    email: o.email || o.customer?.email || '',
+    phone: o.phone || o.customer?.phone || o.shipping_address?.phone || '',
+    customer_name: customerName,
+    customer_id: o.customer?.id,
+    total_price: o.total_price || '0',
+    currency: o.currency,
+    financial_status: o.financial_status,
+    fulfillment_status: o.fulfillment_status,
+    created_at: o.created_at,
+    tags: o.tags,
+    note: o.note,
+    shipping_address: o.shipping_address,
+    billing_address: o.billing_address,
+    line_items: (o.line_items || []).map((li: any) => ({
+      id: li.id,
+      title: li.title,
+      quantity: li.quantity,
+      price: li.price,
+      sku: li.sku,
+      variant_title: li.variant_title,
+    })),
+    fulfillments: o.fulfillments || [],
+    has_refund: (o.refunds || []).length > 0,
+    tracking_number: o.fulfillments?.[0]?.tracking_number || null,
+    tracking_url: o.fulfillments?.[0]?.tracking_url || null,
   }
 }
 
@@ -85,7 +88,6 @@ export async function POST(req: Request) {
   const token = process.env.SHOPIFY_ACCESS_TOKEN
   if (!shop || !token) return NextResponse.json({ ok: false })
 
-  // Not güncelle
   if (action === 'note') {
     const res = await fetch(`${SHOPIFY_URL()}/orders/${id}.json`, {
       method: 'PUT',
@@ -95,7 +97,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: res.ok })
   }
 
-  // Fulfillment oluştur
   if (action === 'fulfill') {
     const res = await fetch(`${SHOPIFY_URL()}/orders/${id}/fulfillments.json`, {
       method: 'POST',
