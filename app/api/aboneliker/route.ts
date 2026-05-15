@@ -13,7 +13,7 @@ export async function GET() {
 
   const { data, error } = await client
     .from('abonelik')
-    .select('id, ad, soyad, adet, durum, iletisim, created_at')
+    .select('id, ad, soyad, adet, durum, iletisim, created_at, adres, ilce, sehir')
     .order('created_at', { ascending: false })
     .limit(100)
 
@@ -32,6 +32,9 @@ export async function GET() {
     fiyat_tekil: 130,
     durum: s.durum || 'bekliyor',
     created_at: s.created_at,
+    adres: s.adres || '',
+    ilce: s.ilce || '',
+    sehir: s.sehir || 'İstanbul',
   }))
 
   return NextResponse.json({ subs })

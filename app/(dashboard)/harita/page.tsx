@@ -7,7 +7,7 @@ import { tr } from 'date-fns/locale'
 
 type Adres = {
   ad: string; telefon: string; adres: string; sehir: string; ilce: string
-  kaynak: 'abonelik' | 'shopify'; adet?: number; siparis?: string
+  kaynak: 'abonelik' | 'shopify'; adet?: number; siparis?: string; durum?: string
 }
 
 export default function HaritaPage() {
@@ -35,15 +35,15 @@ export default function HaritaPage() {
       list.push({
         ad: `${a.ad} ${a.soyad}`.trim() || a.iletisim,
         telefon: a.iletisim,
-        adres: '—',
-        sehir: 'İstanbul',
-        ilce: '—',
+        adres: a.adres || '—',
+        sehir: a.sehir || 'İstanbul',
+        ilce: a.ilce || '',
         kaynak: 'abonelik',
         adet: a.haftalik_adet,
       })
     })
 
-    const siparisler = (sipRes.orders || []).filter((o: any) => !o.fulfillment_status || o.fulfillment_status === 'unfulfilled')
+    const siparisler = (sipRes.orders || [])
     siparisler.forEach((o: any) => {
       if (o.shipping_address) {
         list.push({
@@ -54,6 +54,7 @@ export default function HaritaPage() {
           ilce: o.shipping_address.address2 || '',
           kaynak: 'shopify',
           siparis: o.name,
+          durum: o.fulfillment_status,
         })
       }
     })
@@ -169,7 +170,7 @@ export default function HaritaPage() {
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-ink-900">{a.ad}</div>
                       <div className="text-xs text-ink-400 truncate">
-                        {a.adres !== '—' ? `${a.adres}${a.ilce ? `, ${a.ilce}` : ''}` : a.telefon}
+                        {a.adres && a.adres !== '—' ? `${a.adres}${a.ilce ? `, ${a.ilce}` : ''}` : a.telefon}
                       </div>
                     </div>
                   </div>

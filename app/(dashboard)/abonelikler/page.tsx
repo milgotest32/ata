@@ -9,6 +9,7 @@ type Subscription = {
   id?: string; ad: string; soyad: string; haftalik_adet: number
   iletisim: string; urun?: string; fiyat_tekil?: number
   durum: string; created_at?: string; submitted_at?: string
+  adres?: string; ilce?: string; sehir?: string
 }
 
 type AbonenTeslimat = {
