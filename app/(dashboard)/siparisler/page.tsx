@@ -69,7 +69,7 @@ export default function SiparislerPage() {
 
   const stats = {
     toplam: orders.length,
-    gelir: orders.filter(o => o.financial_status === 'paid').reduce((s, o) => s + parseFloat(o.total_price), 0),
+    gelir: orders.filter(o => o.financial_status === 'paid').reduce((s, o) => s + parseFloat(o.total_price || '0'), 0),
     bekleyen: orders.filter(o => !o.fulfillment_status || o.fulfillment_status === 'unfulfilled').length,
     iade: orders.filter(o => o.has_refund).length,
   }
@@ -229,7 +229,7 @@ export default function SiparislerPage() {
             <div className="flex items-start justify-between mb-2">
               <div>
                 <span className="font-mono text-sm font-medium text-ink-900">{o.name}</span>
-                <span className="text-xs text-ink-400 ml-2">{o.customer_name}</span>
+                <span className="text-xs text-ink-400 ml-2">{o.customer_name || ""}</span>
               </div>
               <span className="font-mono text-sm font-medium text-ink-900">{parseFloat(o.total_price).toLocaleString('tr')} TL</span>
             </div>

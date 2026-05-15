@@ -63,7 +63,10 @@ export default function TakvimPage() {
 
       // Görevler
       ;(gorevRes.gorevler || []).forEach((g: any) => {
-        const tarih = g.bitis_tarihi ? new Date(g.bitis_tarihi) : new Date(g.created_at)
+        const rawTarih = g.bitis_tarihi || g.created_at
+        if (!rawTarih) return
+        const tarih = new Date(rawTarih)
+        if (isNaN(tarih.getTime())) return
         events.push({
           id: `gorev-${g.id}`,
           tarih,
@@ -77,9 +80,11 @@ export default function TakvimPage() {
 
       // Aramalar
       ;(aramaRes.aramalar || []).forEach((a: any) => {
+        const aramaTarih = new Date(a.created_at)
+        if (isNaN(aramaTarih.getTime())) return
         events.push({
           id: `arama-${a.id}`,
-          tarih: new Date(a.created_at),
+          tarih: aramaTarih,
           baslik: `📞 ${a.musteri_adi || a.telefon}`,
           tur: 'arama',
           detay: a.notlar,
@@ -112,9 +117,11 @@ export default function TakvimPage() {
 
       // Shopify siparişleri
       ;(sipRes.orders || []).filter((o: any) => !o.fulfillment_status || o.fulfillment_status === 'unfulfilled').forEach((o: any) => {
+        const sipTarih = new Date(o.created_at)
+        if (isNaN(sipTarih.getTime())) return
         events.push({
           id: `siparis-${o.id}`,
-          tarih: new Date(o.created_at),
+          tarih: sipTarih,
           baslik: `📦 ${o.name} · ${o.customer_name || ''}`,
           tur: 'siparis',
           detay: `${parseFloat(o.total_price).toLocaleString('tr')} TL`,
@@ -127,7 +134,7 @@ export default function TakvimPage() {
     finally { setLoading(false) }
   }
 
-  const filteredEvents = etkinlikler.filter(e => filter.includes(e.tur))
+  const filteredEvents = etkinlikler.filter(e => filter.includes(e.tur) && e.tarih instanceof Date && !isNaN(e.tarih.getTime()))
 
   // Ay görünümü için günler
   const monthStart = startOfMonth(currentMonth)
