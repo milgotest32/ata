@@ -87,6 +87,7 @@ export default function CalismaPage() {
   }
 
   async function notSil(id: number) {
+    if (!confirm('Bu notu silmek istediğinize emin misiniz?')) return
     await fetch(`/api/ekip-notu?id=${id}`, { method: 'DELETE' })
     load()
   }

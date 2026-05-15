@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { MapPin, Truck, RefreshCw, Package } from 'lucide-react'
+import { MapPin, Truck, RefreshCw, Package, ExternalLink } from 'lucide-react'
 import { format, nextFriday, startOfDay } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -14,6 +14,7 @@ export default function HaritaPage() {
   const [adresler, setAdresler] = useState<Adres[]>([])
   const [loading, setLoading] = useState(true)
   const [filtre, setFiltre] = useState<'hepsi' | 'abonelik' | 'shopify'>('hepsi')
+  const [haritaGoster, setHaritaGoster] = useState(false)
 
   const bugunCuma = startOfDay(new Date()).getDay() === 5
   const sonrakiCuma = bugunCuma ? new Date() : nextFriday(new Date())
@@ -29,21 +30,19 @@ export default function HaritaPage() {
 
     const list: Adres[] = []
 
-    // Abonelik teslimatları
     const aboneler = (abRes.subs || []).filter((a: any) => a.durum === 'abone')
     aboneler.forEach((a: any) => {
       list.push({
         ad: `${a.ad} ${a.soyad}`.trim() || a.iletisim,
         telefon: a.iletisim,
         adres: '—',
-        sehir: 'Istanbul',
+        sehir: 'İstanbul',
         ilce: '—',
         kaynak: 'abonelik',
         adet: a.haftalik_adet,
       })
     })
 
-    // Shopify siparişleri — teslim edilmemiş
     const siparisler = (sipRes.orders || []).filter((o: any) => !o.fulfillment_status || o.fulfillment_status === 'unfulfilled')
     siparisler.forEach((o: any) => {
       if (o.shipping_address) {
@@ -65,13 +64,21 @@ export default function HaritaPage() {
 
   const filtered = adresler.filter(a => filtre === 'hepsi' || a.kaynak === filtre)
 
-  // Şehir/ilçe grupları
   const sehirMap: Record<string, Adres[]> = {}
   filtered.forEach(a => {
     const key = a.sehir || 'Bilinmiyor'
     if (!sehirMap[key]) sehirMap[key] = []
     sehirMap[key].push(a)
   })
+
+  // Google Maps arama sorgusu oluştur
+  const shopifyAdresleri = filtered.filter(a => a.kaynak === 'shopify' && a.adres !== '—')
+  const mapsQuery = shopifyAdresleri.map(a => `${a.adres} ${a.sehir}`).join('|')
+  const mapsUrl = shopifyAdresleri.length > 0
+    ? `https://www.google.com/maps/dir/${shopifyAdresleri.map(a => encodeURIComponent(`${a.adres} ${a.sehir}`)).join('/')}`
+    : `https://www.google.com/maps/search/${encodeURIComponent('İstanbul')}`
+
+  const toplamAdet = filtered.filter(a => a.kaynak === 'abonelik').reduce((s, a) => s + (a.adet || 0), 0)
 
   return (
     <div className="p-4 md:p-10 max-w-7xl mx-auto">
@@ -86,25 +93,41 @@ export default function HaritaPage() {
       </header>
 
       {/* Cuma özeti */}
-      <div className="bg-moss-50 border border-moss-200 rounded-2xl p-5 mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-moss-200 rounded-xl flex items-center justify-center">
-            <Truck className="w-5 h-5 text-moss-700" strokeWidth={1.5} />
+      <div className="bg-moss-50 border border-moss-200 rounded-2xl p-5 mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-moss-200 rounded-xl flex items-center justify-center">
+              <Truck className="w-5 h-5 text-moss-700" strokeWidth={1.5} />
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-moss-600 mb-1">Sonraki Teslimat</div>
+              <div className="font-medium text-moss-900">{format(sonrakiCuma, "d MMMM yyyy, EEEE", { locale: tr })}</div>
+              <div className="text-sm text-moss-600 font-mono mt-0.5">{filtered.length} adres · {toplamAdet} adet · {toplamAdet * 2}L süt</div>
+            </div>
           </div>
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-moss-600 mb-1">Sonraki Teslimat</div>
-            <div className="font-medium text-moss-900">{format(sonrakiCuma, "d MMMM yyyy, EEEE", { locale: tr })}</div>
-            <div className="text-sm text-moss-600 font-mono mt-0.5">{filtered.length} adres · {filtered.filter(a => a.kaynak === 'abonelik').reduce((s, a) => s + (a.adet || 0), 0)} litre süt</div>
+          <div className="flex gap-2">
+            {shopifyAdresleri.length > 0 && (
+              <a href={mapsUrl} target="_blank"
+                className="flex items-center gap-2 px-4 py-2 bg-moss-600 text-white rounded-xl text-sm font-medium hover:bg-moss-700 transition-colors">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Google Maps'te Aç
+              </a>
+            )}
+            <button onClick={() => window.print()}
+              className="px-4 py-2 bg-white border border-moss-300 text-moss-700 rounded-xl text-sm font-medium hover:bg-moss-50 transition-colors">
+              🖨️ Yazdır
+            </button>
           </div>
         </div>
-        <button onClick={() => window.print()} className="px-4 py-2 bg-moss-600 text-white rounded-xl text-sm font-medium hover:bg-moss-700 transition-colors hidden md:block">
-          🖨️ Listeyi Yazdır
-        </button>
       </div>
 
       {/* Filtreler */}
       <div className="flex gap-2 mb-6">
-        {[{v:'hepsi',l:`Hepsi (${adresler.length})`},{v:'abonelik',l:`Abonelik (${adresler.filter(a=>a.kaynak==='abonelik').length})`},{v:'shopify',l:`Sipariş (${adresler.filter(a=>a.kaynak==='shopify').length})`}].map(f => (
+        {[
+          {v:'hepsi', l:`Hepsi (${adresler.length})`},
+          {v:'abonelik', l:`Abonelik (${adresler.filter(a=>a.kaynak==='abonelik').length})`},
+          {v:'shopify', l:`Sipariş (${adresler.filter(a=>a.kaynak==='shopify').length})`}
+        ].map(f => (
           <button key={f.v} onClick={() => setFiltre(f.v as any)}
             className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${filtre === f.v ? 'bg-ink-900 text-cream-50' : 'bg-white border border-cream-200 text-ink-500'}`}>
             {f.l}
@@ -123,8 +146,17 @@ export default function HaritaPage() {
                 <h2 className="font-display text-xl text-ink-900">{sehir}</h2>
                 <span className="text-xs text-ink-400 font-mono">{adresListesi.length} adres</span>
               </div>
-              <div className="text-xs text-ink-400 font-mono">
-                {adresListesi.filter(a => a.kaynak === 'abonelik').reduce((s, a) => s + (a.adet || 0), 0)} litre
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-ink-400 font-mono">
+                  {adresListesi.filter(a => a.kaynak === 'abonelik').reduce((s, a) => s + (a.adet || 0), 0)} litre
+                </span>
+                {adresListesi.some(a => a.adres !== '—') && (
+                  <a href={`https://www.google.com/maps/search/${encodeURIComponent(sehir + ' ' + adresListesi.filter(a=>a.adres!=='—').map(a=>a.adres).join(', '))}`}
+                    target="_blank"
+                    className="text-xs text-moss-600 flex items-center gap-1 hover:text-moss-700">
+                    <ExternalLink className="w-3 h-3" />Harita
+                  </a>
+                )}
               </div>
             </div>
             <div className="divide-y divide-cream-100">
@@ -149,9 +181,11 @@ export default function HaritaPage() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${a.kaynak === 'abonelik' ? 'bg-moss-100 text-moss-700' : 'bg-cream-200 text-ink-600'}`}>
                       {a.kaynak === 'abonelik' ? 'Abone' : 'Sipariş'}
                     </span>
-                    {a.telefon !== '—' && (
-                      <a href={`tel:${a.telefon}`} className="w-7 h-7 flex items-center justify-center rounded-lg bg-cream-100 text-ink-500 hover:bg-cream-200 transition-colors">
-                        <Package className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    {a.adres !== '—' && (
+                      <a href={`https://www.google.com/maps/search/${encodeURIComponent(a.adres + ' ' + a.sehir)}`}
+                        target="_blank"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-cream-100 text-ink-500 hover:bg-moss-100 hover:text-moss-700 transition-colors">
+                        <MapPin className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </a>
                     )}
                   </div>

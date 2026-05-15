@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  async function girisYap() {
+  async function login() {
     if (!kullanici_adi || !sifre) { setError('Kullanıcı adı ve şifre gerekli'); return }
     setLoading(true)
     setError('')
@@ -37,10 +37,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-cream-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
-          <div className="font-display text-5xl text-ink-900 tracking-tight mb-2">
-            milgo<span className="text-moss-500">.</span>
-          </div>
-          <div className="text-xs uppercase tracking-[0.3em] text-ink-300">admin panel</div>
+          <div className="font-display text-5xl text-ink-900 mb-2">milgo<span className="text-moss-500">.</span></div>
+          <div className="text-xs uppercase tracking-[0.3em] text-ink-400">yönetim paneli</div>
         </div>
 
         <div className="bg-white border border-cream-200 rounded-2xl p-8 shadow-sm">
@@ -51,10 +49,9 @@ export default function LoginPage() {
                 type="text"
                 value={kullanici_adi}
                 onChange={e => setKullaniciAdi(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && girisYap()}
-                placeholder="kullanici_adi"
-                className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 focus:outline-none focus:border-moss-400 transition-colors"
-                autoFocus
+                onKeyDown={e => e.key === 'Enter' && login()}
+                placeholder="kullanici.adi"
+                className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 font-mono placeholder-ink-300 focus:outline-none focus:border-moss-400 transition-colors"
               />
             </div>
             <div>
@@ -63,20 +60,20 @@ export default function LoginPage() {
                 type="password"
                 value={sifre}
                 onChange={e => setSifre(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && girisYap()}
+                onKeyDown={e => e.key === 'Enter' && login()}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 focus:outline-none focus:border-moss-400 transition-colors"
+                className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 placeholder-ink-300 focus:outline-none focus:border-moss-400 transition-colors"
               />
             </div>
 
             {error && (
-              <div className="text-sm text-ember-600 bg-ember-50 border border-ember-200 rounded-xl px-4 py-3">
+              <div className="px-4 py-3 bg-ember-50 border border-ember-200 rounded-xl text-ember-700 text-sm">
                 {error}
               </div>
             )}
 
             <button
-              onClick={girisYap}
+              onClick={login}
               disabled={loading}
               className="w-full py-3 bg-ink-900 text-cream-50 rounded-xl font-medium hover:bg-ink-700 transition-colors disabled:opacity-40"
             >
@@ -84,6 +81,10 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
+
+        <p className="text-center text-xs text-ink-300 mt-6 font-mono">
+          milgo. admin · v2.0
+        </p>
       </div>
     </div>
   )
