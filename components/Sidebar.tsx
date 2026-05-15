@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone, CreditCard, Users, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone, CreditCard, Users, TrendingUp, CheckSquare, Map, BookOpen } from 'lucide-react'
 
 export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?: boolean }) {
   const pathname = usePathname()
@@ -39,6 +39,9 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
     { href: '/satis', label: 'Satış Analitik', icon: TrendingUp, badge: null },
     { href: '/abonelikler', label: 'Abonelikler', icon: Repeat, badge: null },
     { href: '/odemeler', label: 'Ödemeler', icon: CreditCard, badge: null },
+    { href: '/muhasebe', label: 'Muhasebe', icon: BookOpen, badge: null },
+    { href: '/harita', label: 'Teslimat Haritası', icon: Map, badge: null },
+    { href: '/calisma', label: 'Çalışma', icon: CheckSquare, badge: null },
     { href: '/reklamlar', label: 'Reklamlar', icon: Megaphone, badge: null },
     { href: '/raporlar', label: 'Raporlar', icon: BarChart3, badge: null },
   ]
