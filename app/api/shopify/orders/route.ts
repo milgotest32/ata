@@ -1,60 +1,53 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const shop = process.env.SHOPIFY_STORE_URL
+  const token = process.env.SHOPIFY_ACCESS_TOKEN
 
-  if (!url || !key) {
-    return NextResponse.json({ subs: [], error: 'Supabase yapılandırılmamış' })
+  if (!shop || !token) {
+    return NextResponse.json({
+      orders: [],
+      error: 'SHOPIFY_STORE_URL veya SHOPIFY_ACCESS_TOKEN Vercel\'e eklenmemiş.'
+    })
   }
 
-  const client = createClient(url, key)
+  try {
+    const res = await fetch(
+      `https://${shop}/admin/api/2024-01/orders.json?status=any&limit=50`,
+      {
+        headers: {
+          'X-Shopify-Access-Token': token,
+          'Content-Type': 'application/json',
+        },
+        next: { revalidate: 60 }
+      }
+    )
 
-  // wa_sessions tablosundan abonelik sürecindeki kullanıcıları çek
-  const { data, error } = await client
-    .from('wa_sessions')
-    .select('phone, last_intent, pending_action, musteri_yazdigi, updated_at, kvkk_onay')
-    .or('last_intent.eq.subscription,pending_action.like.sub:%')
-    .order('updated_at', { ascending: false })
-    .limit(100)
+    if (!res.ok) {
+      return NextResponse.json({ orders: [], error: `Shopify API hatası: ${res.status}` })
+    }
 
-  if (error) {
-    return NextResponse.json({ subs: [] })
+    const data = await res.json()
+    const orders = (data.orders || []).map((o: any) => ({
+      id: o.id,
+      order_number: o.order_number,
+      name: o.name,
+      email: o.email,
+      phone: o.phone,
+      total_price: o.total_price,
+      currency: o.currency,
+      financial_status: o.financial_status,
+      fulfillment_status: o.fulfillment_status,
+      created_at: o.created_at,
+      line_items: o.line_items?.map((li: any) => ({
+        title: li.title,
+        quantity: li.quantity,
+        price: li.price,
+      })) || [],
+    }))
+
+    return NextResponse.json({ orders })
+  } catch (e: any) {
+    return NextResponse.json({ orders: [], error: e.message })
   }
-
-  // wa_sessions verisini abonelik formatına çevir
-  const subs = (data || []).map((s: any) => {
-    // pending_action'dan abonelik detaylarını parse et
-    // Format: sub:step|urun_key|adet|ad|soyad|iletisim
-    const pa = s.pending_action || ''
-    let urun = 'Çiğ Süt 2L'
-    let adet = 1
-    let durum = 'bekliyor'
-
-    if (pa.startsWith('sub:')) {
-      const parts = pa.substring(4).split('|')
-      const step = parts[0]
-      if (parts[1]) urun = parts[1] === 'cig_sut' ? 'Çiğ Süt 2L' : parts[1]
-      if (parts[2]) adet = parseInt(parts[2]) || 1
-      // Ödeme tetiklendiyse aktif say
-      if (step === 'done' || step === 'paid') durum = 'abone'
-    } else if (s.last_intent === 'subscription') {
-      durum = 'bekliyor'
-    }
-
-    return {
-      id: s.phone,
-      ad: s.phone,
-      soyad: '',
-      haftalik_adet: adet,
-      iletisim: s.phone,
-      urun,
-      fiyat_tekil: urun.includes('Süt') ? 130 : 98,
-      durum,
-      submitted_at: s.updated_at,
-    }
-  })
-
-  return NextResponse.json({ subs })
 }
