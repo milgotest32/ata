@@ -6,57 +6,36 @@ const HEADERS = () => ({
   'Content-Type': 'application/json',
 })
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const id = searchParams.get('id')
-  const shop = process.env.SHOPIFY_STORE_URL
-  const token = process.env.SHOPIFY_ACCESS_TOKEN
+function getCustomerName(o: any): string {
+  // 1. shipping_address.name - en güvenilir kaynak
+  const shipName = o.shipping_address?.name?.trim()
+  if (shipName) return shipName
 
-  if (!shop || !token) {
-    return NextResponse.json({ orders: [], error: 'Shopify yapılandırılmamış' })
-  }
+  // 2. customer first + last name
+  const fn = (o.customer?.first_name || '').trim()
+  const ln = (o.customer?.last_name || '').trim()
+  const fullName = [fn, ln].filter(Boolean).join(' ')
+  if (fullName) return fullName
 
-  if (id) {
-    const res = await fetch(`${SHOPIFY_URL()}/orders/${id}.json`, { headers: HEADERS() })
-    if (!res.ok) return NextResponse.json({ order: null, error: res.status })
-    const data = await res.json()
-    const o = data.order
-    return NextResponse.json({ order: mapOrder(o) })
-  }
+  // 3. billing_address.name
+  const billName = o.billing_address?.name?.trim()
+  if (billName) return billName
 
-  try {
-    const res = await fetch(
-      `${SHOPIFY_URL()}/orders.json?status=any&limit=50`,
-      { headers: HEADERS(), next: { revalidate: 60 } }
-    )
-    if (!res.ok) return NextResponse.json({ orders: [], error: res.status })
-    const data = await res.json()
-    return NextResponse.json({ orders: (data.orders || []).map(mapOrder) })
-  } catch (e: any) {
-    return NextResponse.json({ orders: [], error: e.message })
-  }
+  // 4. email
+  if (o.customer?.email) return o.customer.email
+  if (o.email) return o.email
+
+  return '—'
 }
 
 function mapOrder(o: any) {
-  // Müşteri adını tüm kaynaklardan bul
-  const customerName = (() => {
-    const fn = o.customer?.first_name || ''
-    const ln = o.customer?.last_name || ''
-    const fullName = [fn, ln].filter(Boolean).join(' ').trim()
-    if (fullName) return fullName
-    if (o.shipping_address?.name) return o.shipping_address.name
-    if (o.billing_address?.name) return o.billing_address.name
-    if (o.customer?.email) return o.customer.email
-    return ''
-  })()
-
   return {
     id: o.id,
     order_number: o.order_number,
     name: o.name,
     email: o.email || o.customer?.email || '',
     phone: o.phone || o.customer?.phone || o.shipping_address?.phone || '',
-    customer_name: customerName,
+    customer_name: getCustomerName(o),
     customer_id: o.customer?.id,
     total_price: o.total_price || '0',
     currency: o.currency,
@@ -79,6 +58,51 @@ function mapOrder(o: any) {
     has_refund: (o.refunds || []).length > 0,
     tracking_number: o.fulfillments?.[0]?.tracking_number || null,
     tracking_url: o.fulfillments?.[0]?.tracking_url || null,
+  }
+}
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+  const shop = process.env.SHOPIFY_STORE_URL
+  const token = process.env.SHOPIFY_ACCESS_TOKEN
+
+  if (!shop || !token) {
+    return NextResponse.json({ orders: [], error: 'Shopify yapılandırılmamış' })
+  }
+
+  if (id) {
+    const res = await fetch(
+      `${SHOPIFY_URL()}/orders/${id}.json`,
+      { headers: HEADERS() }
+    )
+    if (!res.ok) return NextResponse.json({ order: null, error: res.status })
+    const data = await res.json()
+    return NextResponse.json({ order: mapOrder(data.order) })
+  }
+
+  try {
+    const res = await fetch(
+      `${SHOPIFY_URL()}/orders.json?status=any&limit=50`,
+      { headers: HEADERS(), next: { revalidate: 60 } }
+    )
+    if (!res.ok) return NextResponse.json({ orders: [], error: res.status })
+    const data = await res.json()
+
+    // Debug: ilk siparişin ham verisini logla
+    if (data.orders?.[0]) {
+      const first = data.orders[0]
+      console.log('DEBUG order:', JSON.stringify({
+        name: first.name,
+        customer: first.customer,
+        shipping_name: first.shipping_address?.name,
+        billing_name: first.billing_address?.name,
+      }))
+    }
+
+    return NextResponse.json({ orders: (data.orders || []).map(mapOrder) })
+  } catch (e: any) {
+    return NextResponse.json({ orders: [], error: e.message })
   }
 }
 
