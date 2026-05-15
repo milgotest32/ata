@@ -4,13 +4,14 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone, CreditCard, Users, TrendingUp, CheckSquare, Map, BookOpen } from 'lucide-react'
+import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone, CreditCard, Users, TrendingUp, CheckSquare, Map, BookOpen, UserCog } from 'lucide-react'
 
 export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const [canliCount, setCanliCount] = useState(0)
   const [konusmalar, setKonusmalar] = useState(0)
+  const [mevcutKullanici, setMevcutKullanici] = useState<{ ad: string; rol: string } | null>(null)
 
   useEffect(() => {
     async function loadCounts() {
@@ -22,6 +23,12 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
     loadCounts()
     const t = setInterval(loadCounts, 30000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/auth').then(r => r.json()).then(d => {
+      if (d.ok && d.kullanici) setMevcutKullanici(d.kullanici)
+    })
   }, [])
 
   async function logout() {
@@ -43,12 +50,13 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
     { href: '/harita', label: 'Teslimat Haritası', icon: Map, badge: null },
     { href: '/calisma', label: 'Çalışma', icon: CheckSquare, badge: null },
     { href: '/reklamlar', label: 'Reklamlar', icon: Megaphone, badge: null },
+    { href: '/kullanicilar', label: 'Kullanıcılar', icon: UserCog, badge: null },
     { href: '/raporlar', label: 'Raporlar', icon: BarChart3, badge: null },
   ]
 
   return (
     <aside className="w-64 h-full bg-ink-900 text-cream-100 flex flex-col">
-      <div className="px-6 py-6 border-b border-ink-700 flex items-center justify-between">
+      <div className="px-6 py-5 border-b border-ink-700 flex items-center justify-between">
         <div>
           <div className="font-display text-2xl tracking-tight text-cream-50">milgo<span className="text-moss-300">.</span></div>
           <div className="text-[10px] uppercase tracking-[0.25em] text-ink-300 mt-0.5">admin</div>
@@ -60,8 +68,21 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
         )}
       </div>
 
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-1">
+      {/* Kullanıcı bilgisi */}
+      {mevcutKullanici && (
+        <div className="px-6 py-3 border-b border-ink-700/50 flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-moss-700 flex items-center justify-center text-xs font-bold text-moss-200">
+            {mevcutKullanici.ad.slice(0,1).toUpperCase()}
+          </div>
+          <div>
+            <div className="text-xs font-medium text-cream-200">{mevcutKullanici.ad}</div>
+            <div className="text-[10px] text-ink-400 font-mono">{mevcutKullanici.rol}</div>
+          </div>
+        </div>
+      )}
+
+      <nav className="flex-1 p-3 overflow-y-auto">
+        <ul className="space-y-0.5">
           {items.map((item) => {
             const Icon = item.icon
             const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
@@ -70,7 +91,7 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
                 <Link
                   href={item.href}
                   onClick={onClose}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-moss-700 text-cream-50' : 'text-ink-200 hover:bg-ink-700 hover:text-cream-50'}`}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-moss-700 text-cream-50' : 'text-ink-200 hover:bg-ink-700 hover:text-cream-50'}`}
                 >
                   <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
                   <span className="text-sm font-medium flex-1">{item.label}</span>
@@ -88,8 +109,8 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
         </ul>
       </nav>
 
-      <div className="p-4 border-t border-ink-700">
-        <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-ink-300 hover:text-cream-50 hover:bg-ink-700 transition-all text-sm">
+      <div className="p-3 border-t border-ink-700">
+        <button onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-ink-300 hover:text-cream-50 hover:bg-ink-700 transition-all text-sm">
           <LogOut className="w-4 h-4" strokeWidth={1.75} />
           Çıkış Yap
         </button>
