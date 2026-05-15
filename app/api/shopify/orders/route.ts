@@ -41,7 +41,15 @@ export async function GET(req: Request) {
       name: o.name,
       email: o.email || o.customer?.email,
       phone: o.phone || o.customer?.phone,
-      customer_name: o.customer ? [o.customer.first_name, o.customer.last_name].filter(Boolean).join(' ') || o.customer.email || '' : o.shipping_address?.name || '',
+      customer_name: (() => {
+        if (o.customer?.first_name || o.customer?.last_name) {
+          return [o.customer.first_name, o.customer.last_name].filter(Boolean).join(' ')
+        }
+        if (o.shipping_address?.name) return o.shipping_address.name
+        if (o.billing_address?.name) return o.billing_address.name
+        if (o.customer?.email) return o.customer.email
+        return ''
+      })(),
       customer_id: o.customer?.id,
       total_price: o.total_price,
       currency: o.currency,
