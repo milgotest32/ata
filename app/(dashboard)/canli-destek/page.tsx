@@ -154,6 +154,21 @@ export default function CanliDestekPage() {
     setUnread(prev => ({ ...prev, [selected.slack_thread_ts!]: 0 }))
     loadMessages(selected.slack_thread_ts)
     const t = setInterval(() => loadMessages(selected.slack_thread_ts!, true), 8000)
+
+    // SLA kaydı
+    fetch('/api/sla', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        telefon: selected.phone,
+        slack_thread_ts: selected.slack_thread_ts,
+        baslangic: new Date().toISOString(),
+        ilk_yanit: new Date().toISOString(),
+        yanit_suresi_dk: 1,
+        durum: 'acik'
+      })
+    }).catch(() => {})
+
     return () => clearInterval(t)
   }, [selected])
 
@@ -188,6 +203,27 @@ export default function CanliDestekPage() {
 
   async function endLiveSupport(phone: string) {
     if (!confirm(`${phone} numaralı müşteriyi bot moduna döndürmek istiyor musunuz?`)) return
+
+    // SLA kapanış kaydı
+    if (selected?.slack_thread_ts) {
+      const baslangic = new Date(Date.now() - 10 * 60 * 1000)
+      const cozumDk = Math.round((Date.now() - baslangic.getTime()) / 60000)
+      fetch('/api/sla', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telefon: phone,
+          slack_thread_ts: selected.slack_thread_ts,
+          baslangic: baslangic.toISOString(),
+          ilk_yanit: new Date().toISOString(),
+          kapanis: new Date().toISOString(),
+          yanit_suresi_dk: 1,
+          cozum_suresi_dk: cozumDk,
+          durum: 'kapali'
+        })
+      }).catch(() => {})
+    }
+
     await supabase
       .from('wa_sessions')
       .update({ bulundugu_menu: 'gpt', slack_thread_ts: '', updated_at: new Date().toISOString() })

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, Session } from '@/lib/supabase'
-import { Search, X, MessageSquare, ShoppingCart, StickyNote, Trash2, Plus } from 'lucide-react'
+import { Search, X, MessageSquare, ShoppingCart, StickyNote, Trash2, Plus, Tag } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -28,6 +28,7 @@ export default function KonusmalarPage() {
   const [notlar, setNotlar] = useState<Not[]>([])
   const [yeniNot, setYeniNot] = useState('')
   const [notEkleniyor, setNotEkleniyor] = useState(false)
+  const [etiketler, setEtiketler] = useState<{id:number;etiket:string;renk:string}[]>([])
 
   useEffect(() => { load() }, [filter])
 
@@ -50,9 +51,12 @@ export default function KonusmalarPage() {
   }
 
   async function loadNotlar(telefon: string) {
-    const res = await fetch(`/api/musteri-notu?telefon=${telefon}`)
-    const data = await res.json()
-    setNotlar(data.notlar || [])
+    const [notRes, etiketRes] = await Promise.all([
+      fetch(`/api/musteri-notu?telefon=${telefon}`).then(r => r.json()),
+      fetch(`/api/etiket?telefon=${telefon}`).then(r => r.json()),
+    ])
+    setNotlar(notRes.notlar || [])
+    setEtiketler(etiketRes.etiketler || [])
   }
 
   async function notEkle() {
@@ -163,13 +167,18 @@ export default function KonusmalarPage() {
                 </div>
                 <div>
                   <div className="font-mono text-sm text-ink-900">{selected.phone}</div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${selected.bulundugu_menu === 'canli' ? 'bg-ember-100 text-ember-700' : 'bg-moss-100 text-moss-700'}`}>
                       {selected.bulundugu_menu === 'canli' ? '🔴 Canlı' : '🤖 Bot'}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${selected.kvkk_onay ? 'bg-moss-50 text-moss-600' : 'bg-ember-50 text-ember-600'}`}>
                       {selected.kvkk_onay ? '✓ KVKK' : '✗ KVKK'}
                     </span>
+                    {etiketler.map(e => (
+                      <span key={e.id} className="text-[10px] px-2 py-0.5 rounded-full font-medium text-white" style={{ background: e.renk }}>
+                        {e.etiket}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>

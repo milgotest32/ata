@@ -23,6 +23,7 @@ export default function MusterilerPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'vip' | 'aktif' | 'yeni' | 'kayip'>('all')
   const [selected, setSelected] = useState<Customer | null>(null)
+  const [profilEtiketler, setProfilEtiketler] = useState<any[]>([])
 
   useEffect(() => { load() }, [])
 
@@ -97,6 +98,14 @@ export default function MusterilerPage() {
     }))
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (selected) {
+      fetch(`/api/etiket?telefon=${selected.phone}`).then(r => r.json()).then(d => setProfilEtiketler(d.etiketler || []))
+    } else {
+      setProfilEtiketler([])
+    }
+  }, [selected])
 
   const filtered = customers.filter(c => {
     const matchSearch = !search ||
@@ -230,6 +239,11 @@ export default function MusterilerPage() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${SEGMENT_COLOR[selected.segment]}`}>
                       {SEGMENT_LABEL[selected.segment]}
                     </span>
+                    {profilEtiketler.map(e => (
+                      <span key={e.id} className="text-[10px] px-2 py-0.5 rounded-full font-medium text-white mt-1 inline-block" style={{ background: e.renk }}>
+                        {e.etiket}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <button onClick={() => setSelected(null)} className="text-ink-300 hover:text-ink-700"><X className="w-5 h-5" /></button>

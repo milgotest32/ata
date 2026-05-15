@@ -27,6 +27,7 @@ export default function TvPage() {
   const [saatlik, setSaatlik] = useState<{ saat: string; sayi: number }[]>([])
   const [yenilemeGeri, setYenilemeGeri] = useState(30)
   const [lastUpdated, setLastUpdated] = useState(new Date())
+  const [slaAcik, setSlaAcik] = useState(0)
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
@@ -83,6 +84,10 @@ export default function TvPage() {
     const ab = await res.json()
     setAboneler(ab.subs?.filter((s: any) => s.durum === 'abone') || [])
     setLastUpdated(new Date())
+
+    // SLA
+    const slaRes = await fetch('/api/sla').then(r => r.json())
+    setSlaAcik((slaRes.loglar || []).filter((l: any) => l.durum === 'acik').length)
   }
 
   const maxIntent = Math.max(...intents.map(i => i.count), 1)
