@@ -152,7 +152,7 @@ export async function GET(req: Request) {
       method: 'POST',
       headers: HEADERS(),
       body: JSON.stringify({ query: ORDERS_QUERY }),
-      next: { revalidate: 60 }
+      cache: 'no-store'
     })
     if (!res.ok) return NextResponse.json({ orders: [], error: res.status })
     const data = await res.json()
