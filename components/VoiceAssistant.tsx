@@ -203,14 +203,17 @@ ${bekleyenGorev[0] ? '- Son görev: ' + bekleyenGorev[0].baslik : ''}
       soruy(metin)
     }
     r.onend = () => {
-      if (acikRef.current && durumRef.current === 'dinliyor') {
-        setTimeout(() => { try { r.start() } catch {} }, 300)
+      if (acikRef.current && durumRef.current === 'dinliyor' && recognitionRef.current === r) {
+        setTimeout(() => {
+          if (acikRef.current && durumRef.current === 'dinliyor') {
+            try { r.start() } catch {}
+          }
+        }, 300)
       }
     }
     r.onerror = (e: any) => {
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        setDurum('dinliyor')
-      }
+      if (e.error === 'aborted') return
+      if (e.error !== 'no-speech') setDurum('dinliyor')
     }
     recognitionRef.current = r
     try { r.start() } catch {}
@@ -245,12 +248,21 @@ ${bekleyenGorev[0] ? '- Son görev: ' + bekleyenGorev[0].baslik : ''}
       }
     }
     r.onend = () => {
-      if (!acikRef.current) {
-        setTimeout(() => { try { r.start() } catch {} }, 500)
+      if (!acikRef.current && wakeRef.current === r) {
+        setTimeout(() => {
+          if (!acikRef.current && wakeRef.current === r) {
+            try { r.start() } catch {}
+          }
+        }, 800)
       }
     }
-    r.onerror = () => {
-      setTimeout(() => { try { r.start() } catch {} }, 1000)
+    r.onerror = (e: any) => {
+      if (e.error === 'aborted') return
+      setTimeout(() => {
+        if (!acikRef.current && wakeRef.current === r) {
+          try { r.start() } catch {}
+        }
+      }, 1500)
     }
     wakeRef.current = r
     try { r.start() } catch {}
@@ -267,8 +279,13 @@ ${bekleyenGorev[0] ? '- Son görev: ' + bekleyenGorev[0].baslik : ''}
       }).catch(() => {})
 
     return () => {
+      // Sayfa geçişinde her şeyi temizle
+      try { wakeRef.current?.abort() } catch {}
       try { wakeRef.current?.stop() } catch {}
+      try { recognitionRef.current?.abort() } catch {}
       try { recognitionRef.current?.stop() } catch {}
+      wakeRef.current = null
+      recognitionRef.current = null
       window.speechSynthesis.cancel()
     }
   }, [wakeWordBaslat])
