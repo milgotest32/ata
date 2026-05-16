@@ -83,10 +83,12 @@ export async function GET(req: Request) {
     }
     const json = await res.json()
     const orders = json.orders || []
-    console.log('Shopify orders count:', orders.length)
     if (orders[0]) {
-      console.log('İlk sipariş customer:', JSON.stringify(orders[0].customer))
-      console.log('İlk sipariş shipping:', JSON.stringify(orders[0].shipping_address?.name))
+      const o = orders[0]
+      console.log('DEBUG name:', o.name,
+        '| ship.name:', o.shipping_address?.name,
+        '| cust.fn:', o.customer?.first_name,
+        '| cust.ln:', o.customer?.last_name)
     }
     return NextResponse.json({ orders: orders.map(mapOrder) })
   } catch (e: any) {
