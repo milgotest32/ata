@@ -201,12 +201,16 @@ export default function VoiceAssistant() {
     try { recognition.start() } catch {}
   }, [acik, konuş])
 
-  // Mikrofon izni al ve wake word başlat
+  // Mikrofon izni kontrolü - otomatik istemez, butona basınca sorar
   useEffect(() => {
-    navigator.mediaDevices?.getUserMedia({ audio: true }).then(() => {
-      setIzin(true)
-      wakeWordBaslat()
-    }).catch(() => setHata('Mikrofon izni gerekli'))
+    // Zaten izin verilmiş mi kontrol et
+    navigator.permissions?.query({ name: 'microphone' as PermissionName }).then(result => {
+      if (result.state === 'granted') {
+        setIzin(true)
+        wakeWordBaslat()
+      }
+    }).catch(() => {})
+
     return () => {
       wakeRecognitionRef.current?.stop()
       recognitionRef.current?.stop()
@@ -250,9 +254,44 @@ export default function VoiceAssistant() {
       {!acik && (
         <div className="fixed bottom-6 right-6 z-50">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg cursor-pointer transition-all hover:scale-110 ${izin ? 'bg-ink-900' : 'bg-ink-400'}`}
-            onClick={() => {
-              if (!izin) { navigator.mediaDevices?.getUserMedia({ audio: true }).then(() => { setIzin(true); wakeWordBaslat() }) }
-              else { setAcik(true); setTimeout(() => { const k = 'Merhaba Mert! Nasıl yardımcı olabilirim?'; setMesajlar([{ rol: 'assistant', metin: k }]); konuş(k) }, 300) }
+            onClick={async () => {
+              if (!izin) {
+                try {
+                  await navigator.mediaDevices.getUserMedia({ audio: true })
+                  setIzin(true)
+                  setHata('')
+                  // Wake word başlat
+                  const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+                  if (SR) {
+                    const r = new SR()
+                    r.lang = 'tr-TR'
+                    r.continuous = true
+                    r.interimResults = true
+                    r.onresult = (e: any) => {
+                      for (let i = e.resultIndex; i < e.results.length; i++) {
+                        const t = e.results[i][0].transcript.toLowerCase()
+                        if (t.includes('hey milgo') || t.includes('ey milgo')) {
+                          r.stop()
+                          setAcik(true)
+                          const k = 'Merhaba Mert! Ben Milgo yapay zeka asistanı. Nasıl yardımcı olabilirim?'
+                          setMesajlar([{ rol: 'assistant', metin: k }])
+                          setTimeout(() => konuş(k), 300)
+                        }
+                      }
+                    }
+                    r.onend = () => { try { r.start() } catch {} }
+                    wakeRecognitionRef.current = r
+                    r.start()
+                  }
+                } catch {
+                  setHata('Mikrofon izni reddedildi. Tarayıcı ayarlarından izin verin.')
+                }
+              } else {
+                setAcik(true)
+                const k = 'Merhaba Mert! Nasıl yardımcı olabilirim?'
+                setMesajlar([{ rol: 'assistant', metin: k }])
+                setTimeout(() => konuş(k), 300)
+              }
             }}
             title={izin ? '"Hey Milgo" deyin veya tıklayın' : 'Mikrofon izni verin'}>
             {izin ? <Mic className="w-5 h-5 text-cream-50" strokeWidth={1.75} /> : <MicOff className="w-5 h-5 text-white" strokeWidth={1.75} />}
