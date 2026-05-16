@@ -52,37 +52,85 @@ export default function VoiceAssistant() {
     window.speechSynthesis.speak(u)
   }, [])
 
-  // Tüm veriyi tek seferde çek
+  // Tüm veriyi derin analiz için çek
   const tumVeriCek = useCallback(async () => {
     try {
-      const [sipRes, abRes, gorevRes] = await Promise.all([
+      const [sipRes, abRes, gorevRes, sessionRes] = await Promise.all([
         fetch('/api/shopify/orders').then(r => r.json()).catch(() => ({ orders: [] })),
         fetch('/api/aboneliker').then(r => r.json()).catch(() => ({ subs: [] })),
         fetch('/api/gorev').then(r => r.json()).catch(() => ({ gorevler: [] })),
+        fetch('/api/konusmalar').then(r => r.json()).catch(() => ({ sessions: [] })),
       ])
 
       const orders = sipRes.orders || []
-      const bugun = new Date().toDateString()
+      const now = new Date()
+      const bugun = now.toDateString()
+      const ayBas = new Date(now.getFullYear(), now.getMonth(), 1)
+      const haftaOnce = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const ikiHaftaOnce = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+
       const bugunOrders = orders.filter((o: any) => new Date(o.created_at).toDateString() === bugun)
+      const buHaftaOrders = orders.filter((o: any) => new Date(o.created_at) >= haftaOnce)
+      const gecenHaftaOrders = orders.filter((o: any) => {
+        const d = new Date(o.created_at)
+        return d >= ikiHaftaOnce && d < haftaOnce
+      })
       const bekleyenSip = orders.filter((o: any) => !o.fulfillment_status || o.fulfillment_status === 'unfulfilled')
-      const odenenSip = orders.filter((o: any) => o.financial_status === 'paid')
-      const ayBas = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      const ayGelir = odenenSip.filter((o: any) => new Date(o.created_at) >= ayBas)
+      const iadeSip = orders.filter((o: any) => o.has_refund)
+      const ayGelir = orders.filter((o: any) => new Date(o.created_at) >= ayBas && o.financial_status === 'paid')
         .reduce((t: number, o: any) => t + parseFloat(o.total_price || 0), 0)
+      const ortSepet = orders.length > 0 ? orders.reduce((t: number, o: any) => t + parseFloat(o.total_price || 0), 0) / orders.length : 0
+
+      // Ürün analizi
+      const urunSayac: Record<string, number> = {}
+      orders.forEach((o: any) => {
+        o.line_items?.forEach((li: any) => {
+          urunSayac[li.title] = (urunSayac[li.title] || 0) + li.quantity
+        })
+      })
+      const enCokSatan = Object.entries(urunSayac).sort((a,b) => b[1]-a[1]).slice(0,3).map(([k,v]) => `${k}(${v})`).join(', ')
 
       const aboneler = abRes.subs || []
       const aktifAboneler = aboneler.filter((a: any) => a.durum === 'abone')
+      const bekleyenAboneler = aboneler.filter((a: any) => a.durum === 'bekliyor')
       const haftalikAdet = aktifAboneler.reduce((t: number, a: any) => t + (a.haftalik_adet || 0), 0)
+      const aylikAbonelikGelir = haftalikAdet * 130 * 4
 
       const gorevler = gorevRes.gorevler || []
       const bekleyenGorev = gorevler.filter((g: any) => g.durum === 'bekliyor')
       const acilGorev = bekleyenGorev.filter((g: any) => g.oncelik === 'acil')
+      const gecikGorev = bekleyenGorev.filter((g: any) => g.bitis_tarihi && new Date(g.bitis_tarihi) < now)
+
+      const haftaTrend = buHaftaOrders.length > gecenHaftaOrders.length ? 'artıyor' :
+        buHaftaOrders.length < gecenHaftaOrders.length ? 'azalıyor' : 'stabil'
 
       return `
-SİPARİŞLER: Toplam ${orders.length} sipariş. Bugün ${bugunOrders.length} yeni sipariş. ${bekleyenSip.length} sipariş kargo bekliyor. Bu ay ${ayGelir.toLocaleString('tr')} TL gelir.
-ABONELIKLER: ${aktifAboneler.length} aktif abone. Haftada ${haftalikAdet} adet teslimat.
-GÖREVLER: ${bekleyenGorev.length} bekleyen görev${acilGorev.length > 0 ? `, ${acilGorev.length} acil` : ''}.
-${bekleyenGorev[0] ? 'Son görev: ' + bekleyenGorev[0].baslik : ''}
+=== GÜNCEL DASHBOARD VERİLERİ ===
+TARİH: ${now.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}
+
+SİPARİŞ ANALİZİ:
+- Toplam sipariş: ${orders.length}
+- Bugün: ${bugunOrders.length} sipariş
+- Bu hafta: ${buHaftaOrders.length} sipariş (geçen hafta: ${gecenHaftaOrders.length})
+- Haftalık trend: ${haftaTrend}
+- Kargo bekleyen: ${bekleyenSip.length} sipariş
+- İade olan: ${iadeSip.length} sipariş
+- Bu ay gelir: ${ayGelir.toLocaleString('tr')} TL
+- Ortalama sepet: ${Math.round(ortSepet).toLocaleString('tr')} TL
+- En çok satan: ${enCokSatan || 'veri yok'}
+
+ABONELİK ANALİZİ:
+- Aktif abone: ${aktifAboneler.length}
+- Onay bekleyen: ${bekleyenAboneler.length}
+- Haftalık teslimat: ${haftalikAdet} adet
+- Tahmini aylık abonelik geliri: ${aylikAbonelikGelir.toLocaleString('tr')} TL
+
+GÖREV ANALİZİ:
+- Bekleyen görev: ${bekleyenGorev.length}
+- Acil görev: ${acilGorev.length}
+- Geciken görev: ${gecikGorev.length}
+${acilGorev[0] ? '- ACİL: ' + acilGorev[0].baslik : ''}
+${bekleyenGorev[0] ? '- Son görev: ' + bekleyenGorev[0].baslik : ''}
       `.trim()
     } catch {
       return 'Veri çekilemedi.'
@@ -123,13 +171,21 @@ ${bekleyenGorev[0] ? 'Son görev: ' + bekleyenGorev[0].baslik : ''}
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 200,
-          system: `Sen milgo adlı süt çiftliğinin sesli yapay zeka asistanısın. Kullanıcı adı Mert.
-Türkçe konuş. Cevapların kısa ve net olsun, maksimum 2-3 cümle.
-Sayıları Türkçe söyle. Lira yerine TL de.
-Güncel dashboard verileri:
-${veri}
+          system: `Sen milgo süt çiftliğinin akıllı sesli yapay zeka asistanısın. Kullanıcı adı Mert.
 
-Sayfa yönlendirme isterse "şu an [sayfa adı] sayfasına yönlendiriyorum" gibi söyle.`,
+KARAKTER: Samimi, zeki, analitik. Sadece veri okuma değil, gerçek yorum ve analiz yap.
+DİL: Türkçe. Doğal konuşma dili kullan, resmi olma.
+UZUNLUK: Basit sorularda 1-2 cümle. Analiz sorularında 3-4 cümle. Asla çok uzun olma.
+
+ANALİZ YAKLAŞIMI:
+- Sadece rakam söyleme, yorumla. "5 sipariş var" değil "Bu hafta 5 sipariş gelmiş, geçen haftaya göre düşük, dikkat etmek lazım."
+- Trendi fark et: artıyor mu, azalıyor mu, neden olabilir?
+- Sorun görüyorsan belirt: "İade sayısı yüksek görünüyor", "Acil görev var unutma"
+- Pozitif gelişmeleri de vurgula: "Abonelik geliri iyi görünüyor"
+- Öneri sun: "Pazartesi siparişleri düşüyor genelde, hatırlatma mesajı gönderebilirsin"
+
+Güncel dashboard verileri:
+${veri}`,
           messages: [...oncekiMesajlar, { role: 'user', content: soru }]
         })
       })
