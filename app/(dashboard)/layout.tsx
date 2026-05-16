@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Sidebar from '@/components/Sidebar'
-import { Menu, Moon, Sun, Tv } from 'lucide-react'
+import { Menu, Moon, Sun, Tv, Search } from 'lucide-react'
+import GlobalArama from '@/components/GlobalArama'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar onClose={() => setOpen(false)} dark={dark} />
       </div>
 
+      <GlobalArama />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 sticky top-0 z-30 border-b ${dark ? 'bg-gray-900 border-gray-800' : 'bg-white border-cream-200'}`}>
@@ -47,6 +49,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+              className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-colors ${dark ? 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white' : 'bg-cream-50 border-cream-200 text-ink-400 hover:text-ink-700'}`}>
+              <Search className="w-3.5 h-3.5" />
+              <span>Ara</span>
+              <kbd className="font-mono text-[10px] opacity-60">Ctrl+K</kbd>
+            </button>
             <button onClick={toggleDark}
               className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${dark ? 'text-yellow-400 hover:bg-gray-800' : 'text-ink-400 hover:bg-cream-100'}`}
               title={dark ? 'Açık mod' : 'Koyu mod'}>
