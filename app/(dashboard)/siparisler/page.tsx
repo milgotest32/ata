@@ -46,8 +46,11 @@ export default function SiparislerPage() {
     try {
       const res = await fetch('/api/shopify/orders')
       const data = await res.json()
+      if (data.error) console.error('Shopify hata:', data.error)
       setOrders(data.orders || [])
-    } catch (e) { console.error(e) }
+    } catch (e: any) {
+      console.error('Fetch hata:', e.message)
+    }
     finally { setLoading(false) }
   }, [])
 
@@ -230,6 +233,7 @@ export default function SiparislerPage() {
       {/* Mobil: kart listesi */}
       <div className="md:hidden space-y-2">
         {loading ? [1,2,3].map(i => <div key={i} className="h-24 bg-cream-100 rounded-2xl animate-pulse" />) :
+        filtered.length === 0 ? <div className="p-8 text-center text-ink-400 font-mono text-sm bg-white rounded-2xl border border-cream-200">{orders.length === 0 ? `API yanıt verdi ama veri yok (${orders.length})` : "filtre sonucu boş"}</div> :
         filtered.map(o => (
           <div key={o.id} onClick={() => setSelected(o)} className="bg-white border border-cream-200 rounded-2xl p-4 cursor-pointer hover:border-moss-300 transition-colors">
             <div className="flex items-start justify-between mb-2">
@@ -282,7 +286,7 @@ export default function SiparislerPage() {
             </tbody>
           </table>
         )}
-        {!loading && filtered.length === 0 && <div className="p-12 text-center text-ink-300 font-mono text-sm">sipariş bulunamadı</div>}
+        {!loading && filtered.length === 0 && <div className="p-12 text-center text-ink-300 font-mono text-sm">{orders.length === 0 ? "veri yüklenemedi - sayfayı yenile" : "sipariş bulunamadı"}</div>}
       </div>
 
       {/* Sipariş Detay Drawer */}
