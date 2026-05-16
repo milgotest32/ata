@@ -63,7 +63,7 @@ export async function GET(req: Request) {
 
   try {
     const res = await fetch(
-      `${REST()}/orders.json?status=any&limit=50&fields=id,order_number,name,email,phone,total_price,currency,financial_status,fulfillment_status,created_at,tags,note,customer,shipping_address,billing_address,line_items,fulfillments,refunds`,
+      `${REST()}/orders.json?status=any&limit=50`,
       { headers: H(), cache: 'no-store' }
     )
     if (!res.ok) {
