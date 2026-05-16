@@ -9,14 +9,24 @@ const H = () => ({
 })
 
 function getName(o: any): string {
+  // 1. shipping_address.name - en güvenilir
+  const shipName = (o.shipping_address?.name || '').trim()
+  if (shipName) return shipName
+
+  // 2. customer first + last
   const fn = (o.customer?.first_name || '').trim()
   const ln = (o.customer?.last_name || '').trim()
   const full = [fn, ln].filter(Boolean).join(' ')
   if (full) return full
-  if (o.shipping_address?.name) return o.shipping_address.name
-  if (o.billing_address?.name) return o.billing_address.name
-  if (o.customer?.email) return o.customer.email
-  if (o.email) return o.email
+
+  // 3. billing
+  const billName = (o.billing_address?.name || '').trim()
+  if (billName) return billName
+
+  // 4. email
+  const email = o.customer?.email || o.email || ''
+  if (email) return email
+
   return '—'
 }
 
