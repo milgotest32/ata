@@ -20,7 +20,7 @@ const tooltipStyle = { background: '#fdfcf7', border: '1px solid #e8d9a8', borde
 const MILGO_FIYAT = 130 // TL per 2L
 
 export default function RaporlarPage() {
-  const [sessions, setSessions] = useState<Session[]>([])
+  const [sessions, setSessions] = useState<any[]>([])
   const [slaLoglar, setSlaLoglar] = useState<any[]>([])
   const [rakipler, setRakipler] = useState<any[]>([])
   const [etiketler, setEtiketler] = useState<any[]>([])
@@ -53,7 +53,7 @@ export default function RaporlarPage() {
   const canliDusdu = sessions.filter(s => s.last_intent === 'human_handover' || s.bulundugu_menu === 'canli').length
   const botBasariOrani = toplamKonusma > 0 ? Math.round((botCozdu / toplamKonusma) * 100) : 0
   const intentMap: Record<string, number> = {}
-  sessions.forEach(s => { const i = s.last_intent || 'other'; intentMap[i] = (intentMap[i] || 0) + 1 })
+  sessions.forEach((s: any) => { const i = s.last_intent || 'other'; intentMap[i] = (intentMap[i] || 0) + 1 })
   const intentData = Object.entries(intentMap).sort((a,b) => b[1]-a[1]).map(([intent, count]) => ({ intent, name: INTENT_LABEL[intent] || intent, count }))
   const sorunluIntentler = intentData.filter(i => i.intent === 'human_handover' || i.intent === 'complaint')
   const saatMap: Record<string, number> = {}

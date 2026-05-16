@@ -133,14 +133,20 @@ export default function DashboardPage() {
     setAboneler(abData.subs || [])
 
     // Bu ay gelir
-    const sipRes = await fetch('/api/shopify/orders')
-    const sipData = await sipRes.json()
-    const buAy = new Date()
-    const ayBas = new Date(buAy.getFullYear(), buAy.getMonth(), 1)
-    const ayGelir = (sipData.orders || [])
-      .filter((o: any) => new Date(o.created_at) >= ayBas && o.financial_status === 'paid')
-      .reduce((s: number, o: any) => s + parseFloat(o.total_price || 0), 0)
-    setAylikGelir(ayGelir)
+    try {
+      const sipRes = await fetch('/api/shopify/orders')
+      const sipData = await sipRes.json()
+      const buAy = new Date()
+      const ayBas = new Date(buAy.getFullYear(), buAy.getMonth(), 1)
+      const ayGelir = (sipData.orders || [])
+        .filter((o: any) => {
+          const d = new Date(o.created_at)
+          const status = (o.financial_status || '').toLowerCase()
+          return d >= ayBas && status === 'paid'
+        })
+        .reduce((s: number, o: any) => s + parseFloat(o.total_price || 0), 0)
+      setAylikGelir(ayGelir)
+    } catch {}
   }, [])
 
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t) }, [load])

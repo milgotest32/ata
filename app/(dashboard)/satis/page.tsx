@@ -44,7 +44,8 @@ export default function SatisPage() {
 
   // Günlük gelir
   const gunlukMap: Record<string, number> = {}
-  for (let i = Math.min(aralik, 30) - 1; i >= 0; i--) {
+  const gosterilecekGun = aralik <= 30 ? aralik : 30
+  for (let i = gosterilecekGun - 1; i >= 0; i--) {
     const d = format(subDays(new Date(), i), 'dd MMM', { locale: tr })
     gunlukMap[d] = 0
   }

@@ -42,7 +42,7 @@ export default function MuhasebePage() {
       return d >= ayBas && d <= ayBit && o.durum === 'odendi'
     })
     const aktifAboneler = aboneler.filter((a: any) => a.durum === 'abone')
-    const abonelikGelir = aktifAboneler.reduce((s: number, a: any) => s + (a.haftalik_adet * (a.fiyat_tekil || 130) * 4), 0)
+    const abonelikGelir = aktifAboneler.reduce((s: number, a: any) => s + ((a.haftalik_adet || 0) * (a.fiyat_tekil || 130) * 4), 0)
 
     return {
       ayStr, ay: format(ay, 'MMMM yyyy', { locale: tr }),

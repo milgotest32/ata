@@ -16,13 +16,19 @@ type Order = {
 
 const STATUS_LABEL: Record<string, string> = {
   paid: 'Ödendi', pending: 'Beklemede', refunded: 'İade', partially_refunded: 'Kısmi İade',
-  fulfilled: 'Teslim', unfulfilled: 'Hazırlanıyor', partial: 'Kısmi Teslim', null: 'Bekliyor'
+  fulfilled: 'Teslim', unfulfilled: 'Hazırlanıyor', partial: 'Kısmi Teslim', null: 'Bekliyor',
+  // GraphQL büyük harf
+  PAID: 'Ödendi', PENDING: 'Beklemede', REFUNDED: 'İade',
+  FULFILLED: 'Teslim', UNFULFILLED: 'Hazırlanıyor', PARTIALLY_FULFILLED: 'Kısmi Teslim',
 }
 const STATUS_COLOR: Record<string, string> = {
   paid: 'bg-moss-100 text-moss-700', pending: 'bg-cream-200 text-ink-600',
   refunded: 'bg-ember-100 text-ember-700', partially_refunded: 'bg-ember-50 text-ember-600',
   fulfilled: 'bg-moss-100 text-moss-700', unfulfilled: 'bg-cream-200 text-ink-600',
-  partial: 'bg-cream-300 text-ink-600'
+  partial: 'bg-cream-300 text-ink-600',
+  PAID: 'bg-moss-100 text-moss-700', PENDING: 'bg-cream-200 text-ink-600',
+  REFUNDED: 'bg-ember-100 text-ember-700',
+  FULFILLED: 'bg-moss-100 text-moss-700', UNFULFILLED: 'bg-cream-200 text-ink-600',
 }
 
 export default function SiparislerPage() {

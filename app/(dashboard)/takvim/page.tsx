@@ -106,9 +106,9 @@ export default function TakvimPage() {
             events.push({
               id: `teslimat-${a.id}-${cuma.toISOString()}`,
               tarih: cuma,
-              baslik: `🚚 ${a.ad} ${a.soyad} (${a.haftalik_adet} adet)`,
+              baslik: `🚚 ${(a.ad || '') + ' ' + (a.soyad || '')}`.trim() + ` (${a.haftalik_adet || 1} adet)`,
               tur: 'teslimat',
-              detay: `${a.haftalik_adet * 2}L süt · ${a.iletisim}`,
+              detay: `${(a.haftalik_adet || 1) * 2}L süt · ${a.iletisim || ''}`,
               renk: TUR_RENK.teslimat,
             })
           }

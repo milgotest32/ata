@@ -207,7 +207,7 @@ export default function CanliDestekPage() {
     // SLA kapanış kaydı
     if (selected?.slack_thread_ts) {
       const baslangic = new Date(Date.now() - 10 * 60 * 1000)
-      const cozumDk = Math.round((Date.now() - baslangic.getTime()) / 60000)
+      const cozumDk = Math.max(1, Math.round((Date.now() - baslangic.getTime()) / 60000))
       fetch('/api/sla', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -64,7 +64,15 @@ export default function MusterilerPage() {
 
     // Shopify siparişleri ekle (telefon eşleştirme)
     orders.forEach((o: any) => {
-      const phone = o.phone?.replace(/\D/g, '')
+      const rawPhone = (o.phone || '').replace(/\D/g, '')
+      // Format normalizasyon: 905xx, 5xx, 05xx hepsini eşleştir
+      const phoneVariants = [
+        rawPhone,
+        rawPhone.startsWith('90') ? rawPhone.slice(2) : rawPhone,
+        rawPhone.startsWith('0') ? '90' + rawPhone.slice(1) : '90' + rawPhone,
+      ]
+      const matchedPhone = phoneVariants.find(p => customerMap[p])
+      const phone = matchedPhone || rawPhone
       if (phone && customerMap[phone]) {
         customerMap[phone].orders.push(o)
         customerMap[phone].totalSpent += parseFloat(o.total_price || 0)
