@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { Menu, Moon, Sun, Tv, Search } from 'lucide-react'
 import GlobalArama from '@/components/GlobalArama'
+import VoiceAssistant from '@/components/VoiceAssistant'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -37,6 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       <GlobalArama />
+      <VoiceAssistant />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 sticky top-0 z-30 border-b ${dark ? 'bg-gray-900 border-gray-800' : 'bg-white border-cream-200'}`}>
