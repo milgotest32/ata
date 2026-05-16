@@ -71,8 +71,14 @@ export async function GET(req: Request) {
       console.error('Shopify REST hata:', res.status, err)
       return NextResponse.json({ orders: [], error: res.status })
     }
-    const { orders } = await res.json()
-    return NextResponse.json({ orders: (orders || []).map(mapOrder) })
+    const json = await res.json()
+    const orders = json.orders || []
+    console.log('Shopify orders count:', orders.length)
+    if (orders[0]) {
+      console.log('İlk sipariş customer:', JSON.stringify(orders[0].customer))
+      console.log('İlk sipariş shipping:', JSON.stringify(orders[0].shipping_address?.name))
+    }
+    return NextResponse.json({ orders: orders.map(mapOrder) })
   } catch (e: any) {
     console.error('Shopify hata:', e.message)
     return NextResponse.json({ orders: [], error: e.message })
