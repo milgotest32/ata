@@ -158,43 +158,26 @@ ${bekleyenGorev[0] ? '- Son görev: ' + bekleyenGorev[0].baslik : ''}
     // Veri çek
     const veri = await tumVeriCek()
 
-    // Claude'a sor
+    // Groq backend API
     try {
-      const oncekiMesajlar = mesajlar.slice(-6).map(m => ({
-        role: m.rol === 'user' ? 'user' as const : 'assistant' as const,
+      const gecmis = mesajlar.slice(-6).map(m => ({
+        role: m.rol === 'user' ? 'user' : 'assistant',
         content: m.metin
       }))
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/asistan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 200,
-          system: `Sen milgo süt çiftliğinin akıllı sesli yapay zeka asistanısın. Kullanıcı adı Mert.
-
-KARAKTER: Samimi, zeki, analitik. Sadece veri okuma değil, gerçek yorum ve analiz yap.
-DİL: Türkçe. Doğal konuşma dili kullan, resmi olma.
-UZUNLUK: Basit sorularda 1-2 cümle. Analiz sorularında 3-4 cümle. Asla çok uzun olma.
-
-ANALİZ YAKLAŞIMI:
-- Sadece rakam söyleme, yorumla. "5 sipariş var" değil "Bu hafta 5 sipariş gelmiş, geçen haftaya göre düşük, dikkat etmek lazım."
-- Trendi fark et: artıyor mu, azalıyor mu, neden olabilir?
-- Sorun görüyorsan belirt: "İade sayısı yüksek görünüyor", "Acil görev var unutma"
-- Pozitif gelişmeleri de vurgula: "Abonelik geliri iyi görünüyor"
-- Öneri sun: "Pazartesi siparişleri düşüyor genelde, hatırlatma mesajı gönderebilirsin"
-
-Güncel dashboard verileri:
-${veri}`,
-          messages: [...oncekiMesajlar, { role: 'user', content: soru }]
-        })
+        body: JSON.stringify({ soru, veri, gecmis })
       })
 
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      const cevap = data.content?.[0]?.text || 'Anlayamadım, tekrar söyler misin?'
+      const cevap = data.cevap || 'Anlayamadım, tekrar söyler misin?'
       setMesajlar(m => [...m, { rol: 'assistant', metin: cevap }])
       konuş(cevap)
-    } catch {
+    } catch (e) {
+      console.error('Asistan hata:', e)
       const c = 'Bağlantı hatası oluştu, tekrar dener misin?'
       setMesajlar(m => [...m, { rol: 'assistant', metin: c }])
       konuş(c)
