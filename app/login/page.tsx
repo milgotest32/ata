@@ -4,82 +4,86 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [password, setPassword] = useState('')
+  const [kullanici_adi, setKullaniciAdi] = useState('')
+  const [sifre, setSifre] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function login() {
+    if (!kullanici_adi || !sifre) { setError('Kullanıcı adı ve şifre gerekli'); return }
     setLoading(true)
     setError('')
-    const res = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    })
-    const data = await res.json()
-    if (data.ok) {
-      router.push('/')
-      router.refresh()
-    } else {
-      setError(data.error || 'Hata')
-      setLoading(false)
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kullanici_adi, sifre })
+      })
+      const data = await res.json()
+      if (data.ok) {
+        router.push('/')
+        router.refresh()
+      } else {
+        setError(data.error || 'Giriş başarısız')
+      }
+    } catch {
+      setError('Bağlantı hatası')
     }
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-cream-50 grain px-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 -left-32 w-96 h-96 rounded-full bg-moss-200 opacity-30 blur-3xl" />
-        <div className="absolute bottom-0 -right-32 w-96 h-96 rounded-full bg-cream-300 opacity-40 blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-cream-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <div className="font-display text-5xl text-ink-900 mb-2">milgo<span className="text-moss-500">.</span></div>
+          <div className="text-xs uppercase tracking-[0.3em] text-ink-400">yönetim paneli</div>
+        </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="text-center mb-12 animate-slide-up">
-          <div className="inline-block mb-6">
-            <div className="font-display text-5xl tracking-tight text-ink-900">
-              milgo<span className="text-moss-500">.</span>
+        <div className="bg-white border border-cream-200 rounded-2xl p-8 shadow-sm">
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] uppercase tracking-[0.2em] text-ink-300 block mb-1.5">Kullanıcı Adı</label>
+              <input
+                type="text"
+                value={kullanici_adi}
+                onChange={e => setKullaniciAdi(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && login()}
+                placeholder="kullanici.adi"
+                className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 font-mono placeholder-ink-300 focus:outline-none focus:border-moss-400 transition-colors"
+              />
             </div>
-            <div className="text-xs uppercase tracking-[0.3em] text-ink-300 mt-1">
-              admin panel
+            <div>
+              <label className="text-[10px] uppercase tracking-[0.2em] text-ink-300 block mb-1.5">Şifre</label>
+              <input
+                type="password"
+                value={sifre}
+                onChange={e => setSifre(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && login()}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 placeholder-ink-300 focus:outline-none focus:border-moss-400 transition-colors"
+              />
             </div>
+
+            {error && (
+              <div className="px-4 py-3 bg-ember-50 border border-ember-200 rounded-xl text-ember-700 text-sm">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={login}
+              disabled={loading}
+              className="w-full py-3 bg-ink-900 text-cream-50 rounded-xl font-medium hover:bg-ink-700 transition-colors disabled:opacity-40"
+            >
+              {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+            </button>
           </div>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white/80 backdrop-blur-xl border border-cream-200 rounded-3xl p-10 shadow-[0_8px_40px_-12px_rgba(34,32,26,0.15)] animate-fade-in"
-        >
-          <label className="block">
-            <span className="text-xs uppercase tracking-[0.2em] text-ink-300 font-medium">
-              Yönetici Şifresi
-            </span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-              className="mt-3 w-full px-5 py-4 bg-cream-50 border border-cream-200 rounded-xl text-ink-700 font-mono text-lg focus:outline-none focus:border-moss-400 focus:bg-white transition-all"
-              placeholder="••••••••"
-            />
-          </label>
-
-          {error && (
-            <div className="mt-4 text-sm text-ember-600 font-medium">{error}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 w-full py-4 bg-ink-900 text-cream-50 rounded-xl font-medium tracking-wide hover:bg-moss-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap →'}
-          </button>
-        </form>
-
-        <p className="text-center text-xs text-ink-300 mt-8 tracking-wide">
-          Milgo WhatsApp Bot · Yönetim Konsolu
+        <p className="text-center text-xs text-ink-300 mt-6 font-mono">
+          milgo. admin · v2.0
         </p>
       </div>
     </div>
