@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone, CreditCard, Users, TrendingUp, CheckSquare, Map, BookOpen, UserCog, CalendarDays } from 'lucide-react'
+import { LayoutDashboard, MessagesSquare, Headphones, ShoppingBag, Repeat, BarChart3, LogOut, X, Megaphone, CreditCard, Users, TrendingUp, CheckSquare, Map, BookOpen, UserCog, CalendarDays, Share2 } from 'lucide-react'
 
 export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?: boolean }) {
   const pathname = usePathname()
@@ -51,6 +51,7 @@ export default function Sidebar({ onClose, dark }: { onClose?: () => void; dark?
     { href: '/calisma', label: 'Çalışma', icon: CheckSquare, badge: null },
     { href: '/takvim', label: 'Takvim', icon: CalendarDays, badge: null },
     { href: '/reklamlar', label: 'Reklamlar', icon: Megaphone, badge: null },
+    { href: '/paylasim', label: 'Paylaşım Planla', icon: Share2, badge: null },
     { href: '/kullanicilar', label: 'Kullanıcılar', icon: UserCog, badge: null },
     { href: '/raporlar', label: 'Raporlar', icon: BarChart3, badge: null },
   ]
