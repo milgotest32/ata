@@ -18,17 +18,15 @@ type OmniPost = {
   created_at: string
 }
 
-const PLATFORMS = ['Instagram', 'Facebook', 'Twitter', 'YouTube', 'TikTok', 'LinkedIn']
+const PLATFORMS = ['Instagram', 'YouTube', 'Pinterest', 'TikTok']
 const POST_TYPES = ['post', 'story', 'reel']
 const BRANDS = ['Milgo']
 
 const PLATFORM_COLORS: Record<string, string> = {
   Instagram: 'from-pink-500 to-purple-600',
-  Facebook:  'from-blue-500 to-blue-700',
-  Twitter:   'from-sky-400 to-sky-600',
   YouTube:   'from-red-500 to-red-700',
+  Pinterest: 'from-red-400 to-rose-700',
   TikTok:    'from-zinc-600 to-zinc-900',
-  LinkedIn:  'from-blue-600 to-blue-800',
 }
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
