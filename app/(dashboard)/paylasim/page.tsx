@@ -20,7 +20,7 @@ type OmniPost = {
 
 const PLATFORMS = ['Instagram', 'Facebook', 'Twitter', 'YouTube', 'TikTok', 'LinkedIn']
 const POST_TYPES = ['post', 'story', 'reel']
-const BRANDS = ['Milgo', 'Donna']
+const BRANDS = ['Milgo']
 
 const PLATFORM_COLORS: Record<string, string> = {
   Instagram: 'from-pink-500 to-purple-600',
