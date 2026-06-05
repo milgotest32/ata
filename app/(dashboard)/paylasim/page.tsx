@@ -31,7 +31,6 @@ const PLT_STYLE: Record<string, { bg: string; text: string }> = {
 
 const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; dot: string }> = {
   bekliyor:  { label: 'Bekliyor',  bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
-  planlandı: { label: 'Planlandı', bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
   yuklendi:  { label: 'Yayında',   bg: '#dcfce7', color: '#166534', dot: '#22c55e' },
   hata:      { label: 'Hatalı',    bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' },
 }
@@ -141,7 +140,6 @@ export default function PaylasimPage() {
   const counts = {
     all:       posts.length,
     bekliyor:  posts.filter(p => p.status === 'bekliyor').length,
-    planlandı: posts.filter(p => p.status === 'planlandı').length,
     yuklendi:  posts.filter(p => p.status === 'yuklendi').length,
   }
   const filtered = filter === 'all' ? posts : posts.filter(p => p.status === filter)
@@ -168,12 +166,11 @@ export default function PaylasimPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-3 gap-3 mb-6">
           {[
             { key: 'all',       label: 'Toplam',    active: '#293821', numColor: '#fff', mutedColor: '#a8b885' },
             { key: 'bekliyor',  label: 'Bekliyor',  active: '#fef3c7', numColor: '#92400e', mutedColor: '#92400e' },
-            { key: 'planlandı', label: 'Planlandı', active: '#dbeafe', numColor: '#1e40af', mutedColor: '#1e40af' },
-            { key: 'yuklendi',  label: 'Yayında',   active: '#dcfce7', numColor: '#166534', mutedColor: '#166534' },
+                    { key: 'yuklendi',  label: 'Yayında',   active: '#dcfce7', numColor: '#166534', mutedColor: '#166534' },
           ].map(s => (
             <button key={s.key} onClick={() => setFilter(s.key)}
               className="rounded-xl p-4 text-left border transition-all"
