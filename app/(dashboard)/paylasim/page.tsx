@@ -58,6 +58,7 @@ export default function PaylasimPage() {
   const [filter, setFilter] = useState('all')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
+  const [platformFilter, setPlatformFilter] = useState('all')
 
   async function load() {
     setLoading(true)
@@ -142,7 +143,9 @@ export default function PaylasimPage() {
     bekliyor:  posts.filter(p => p.status === 'bekliyor').length,
     yuklendi:  posts.filter(p => p.status === 'yuklendi').length,
   }
-  const filtered = filter === 'all' ? posts : posts.filter(p => p.status === filter)
+  const filtered = posts
+    .filter(p => filter === 'all' || p.status === filter)
+    .filter(p => platformFilter === 'all' || p.platform === platformFilter)
 
   return (
     <div style={{ background: '#f8f7f4', minHeight: '100vh' }}>
@@ -179,6 +182,21 @@ export default function PaylasimPage() {
                 {counts[s.key as keyof typeof counts]}
               </div>
               <div className="text-xs mt-1 font-medium" style={{ color: filter === s.key ? s.mutedColor : '#6b7280' }}>{s.label}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Platform filtre */}
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {['all', ...PLATFORMS].map(p => (
+            <button key={p} onClick={() => setPlatformFilter(p)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+              style={{
+                background: platformFilter === p ? (PLT_STYLE[p]?.bg || '#293821') : '#fff',
+                color: platformFilter === p ? (PLT_STYLE[p]?.text || '#fff') : '#6b7280',
+                borderColor: platformFilter === p ? 'transparent' : '#e5e7eb',
+              }}>
+              {p === 'all' ? 'Tüm Platformlar' : p}
             </button>
           ))}
         </div>
