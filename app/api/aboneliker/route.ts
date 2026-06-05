@@ -19,11 +19,7 @@ export async function GET() {
 
   if (error) {
     console.error('Abonelik fetch error:', error)
-<<<<<<< HEAD
-    return NextResponse.json({ subs: [] })
-=======
     return NextResponse.json({ subs: [], error: error.message })
->>>>>>> 1bce9fce0a511d7e36e3faf8351b52675647aef2
   }
 
   const subs = (data || []).map((s: any) => ({
