@@ -45,7 +45,6 @@ const empty = {
   title: '',
   caption: '',
   hashtags: '',
-  scheduled_at: '',
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -88,7 +87,7 @@ export default function PaylasimPage() {
     const r = await fetch('/api/omni', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, scheduled_at: form.scheduled_at || null }),
+      body: JSON.stringify({ ...form }),
     })
     const d = await r.json()
     if (d.error) { setError(d.error); setSaving(false); return }
@@ -328,14 +327,6 @@ export default function PaylasimPage() {
                 <input type="text" placeholder="#milgo #çiğsüt #istanbul"
                   value={form.hashtags} onChange={e => setForm(f => ({ ...f, hashtags: e.target.value }))}
                   className={`${inputCls} text-moss-400 font-mono`} style={inputStyle}
-                />
-              </Field>
-
-              {/* Tarih */}
-              <Field label="Planlanan Tarih">
-                <input type="datetime-local"
-                  value={form.scheduled_at} onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))}
-                  className={inputCls} style={{ ...inputStyle, colorScheme: 'dark' }}
                 />
               </Field>
 
