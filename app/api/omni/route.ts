@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       caption: caption || null,
       hashtags: hashtags || null,
       scheduled_at: scheduled_at || null,
-      status: 'pending',
+      status: 'bekliyor',
     }])
     .select()
     .single()

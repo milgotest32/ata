@@ -30,17 +30,17 @@ const PLATFORM_COLORS: Record<string, string> = {
 }
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
-  pending:   { label: 'Bekliyor',  dot: 'bg-amber-400'  },
-  scheduled: { label: 'Planlandı', dot: 'bg-blue-400'   },
-  published: { label: 'Yayında',   dot: 'bg-moss-400'   },
-  failed:    { label: 'Hatalı',    dot: 'bg-ember-400'  },
+  bekliyor:   { label: 'Bekliyor',  dot: 'bg-amber-400'  },
+  planlandı: { label: 'Planlandı', dot: 'bg-blue-400'   },
+  yuklendi:   { label: 'Yayında',   dot: 'bg-moss-400'   },
+  hata:       { label: 'Hatalı',    dot: 'bg-ember-400'  },
 }
 
 const empty = {
   brand: 'Milgo',
   platform: 'Instagram',
   media_url: '',
-  media_type: 'image' as 'image' | 'video',
+  media_type: 'resim' as 'resim' | 'video',
   post_type: 'post',
   title: '',
   caption: '',
@@ -106,9 +106,9 @@ export default function PaylasimPage() {
 
   const counts: Record<string, number> = {
     all:       posts.length,
-    pending:   posts.filter(p => p.status === 'pending').length,
-    scheduled: posts.filter(p => p.status === 'scheduled').length,
-    published: posts.filter(p => p.status === 'published').length,
+    pending:   posts.filter(p => p.status === 'bekliyor').length,
+    scheduled: posts.filter(p => p.status === 'planlandı').length,
+    published: posts.filter(p => p.status === 'yuklendi').length,
   }
   const filtered = filter === 'all' ? posts : posts.filter(p => p.status === filter)
 
@@ -141,9 +141,9 @@ export default function PaylasimPage() {
       <div className="grid grid-cols-4 gap-3 mb-8">
         {[
           { key: 'all',       label: 'Toplam',    cls: 'text-cream-100' },
-          { key: 'pending',   label: 'Bekliyor',  cls: 'text-amber-400' },
-          { key: 'scheduled', label: 'Planlandı', cls: 'text-blue-400'  },
-          { key: 'published', label: 'Yayında',   cls: 'text-moss-400'  },
+          { key: 'bekliyor',   label: 'Bekliyor',  cls: 'text-amber-400' },
+          { key: 'planlandı', label: 'Planlandı', cls: 'text-blue-400'  },
+          { key: 'yuklendi', label: 'Yayında',   cls: 'text-moss-400'  },
         ].map(s => (
           <button
             key={s.key}
@@ -176,7 +176,7 @@ export default function PaylasimPage() {
               <div key={post.id} className="group relative border border-ink-700 hover:border-ink-500 rounded-2xl p-5 flex items-center gap-5 transition-all" style={{ background: '#0f0e0a' }}>
                 {/* Thumb */}
                 <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ background: '#22201a' }}>
-                  {post.media_url && post.media_type === 'image' ? (
+                  {post.media_url && post.media_type === 'resim' ? (
                     <img src={post.media_url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -213,12 +213,12 @@ export default function PaylasimPage() {
                 </div>
 
                 {/* Aksiyonlar */}
-                {post.status === 'pending' && (
+                {post.status === 'bekliyor' && (
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button onClick={() => updateStatus(post.id, 'scheduled')} className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs text-blue-400 border border-blue-400/20 hover:border-blue-400/50 transition-colors" style={{ background: 'rgba(96,165,250,0.08)' }}>
+                    <button onClick={() => updateStatus(post.id, 'planlandı')} className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs text-blue-400 border border-blue-400/20 hover:border-blue-400/50 transition-colors" style={{ background: 'rgba(96,165,250,0.08)' }}>
                       <Clock className="w-3.5 h-3.5" /> Planla
                     </button>
-                    <button onClick={() => updateStatus(post.id, 'published')} className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs text-moss-400 border border-moss-400/20 hover:border-moss-400/50 transition-colors" style={{ background: 'rgba(122,160,92,0.08)' }}>
+                    <button onClick={() => updateStatus(post.id, 'yuklendi')} className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs text-moss-400 border border-moss-400/20 hover:border-moss-400/50 transition-colors" style={{ background: 'rgba(122,160,92,0.08)' }}>
                       <CheckCircle2 className="w-3.5 h-3.5" /> Yayınla
                     </button>
                   </div>
@@ -286,13 +286,13 @@ export default function PaylasimPage() {
                 </Field>
                 <Field label="Medya türü">
                   <div className="flex gap-1.5">
-                    {(['image','video'] as const).map(t => (
+                    {(['resim','video'] as const).map(t => (
                       <button key={t} onClick={() => setForm(f => ({ ...f, media_type: t }))}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all ${form.media_type === t ? 'border-ink-500 text-cream-100' : 'border-ink-700 text-ink-300 hover:text-cream-100'}`}
                         style={{ background: form.media_type === t ? '#3d3a30' : '#22201a' }}
                       >
-                        {t === 'image' ? <ImageIcon className="w-3 h-3" /> : <Video className="w-3 h-3" />}
-                        {t === 'image' ? 'Resim' : 'Video'}
+                        {t === 'resim' ? <ImageIcon className="w-3 h-3" /> : <Video className="w-3 h-3" />}
+                        {t === 'resim' ? 'Resim' : 'Video'}
                       </button>
                     ))}
                   </div>
