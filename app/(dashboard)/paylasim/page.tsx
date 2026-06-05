@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Instagram, Facebook, Twitter, Youtube, X, Calendar, Image, Video, Send, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Plus, X, Clock, CheckCircle2, AlertCircle, Loader2, Send, Sparkles, Calendar, ArrowUpRight, ImageIcon, Video, RefreshCw } from 'lucide-react'
 
 type OmniPost = {
   id: number
@@ -20,30 +20,29 @@ type OmniPost = {
 
 const PLATFORMS = ['Instagram', 'Facebook', 'Twitter', 'YouTube', 'TikTok', 'LinkedIn']
 const POST_TYPES = ['post', 'story', 'reel']
-const MEDIA_TYPES = ['image', 'video']
 const BRANDS = ['Milgo', 'Donna']
 
-const STATUS_BADGE: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Bekliyor', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-  scheduled: { label: 'Planlandı', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-  published: { label: 'Yayınlandı', color: 'bg-moss-500/20 text-moss-300 border-moss-500/30' },
-  failed: { label: 'Hatalı', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
+const PLATFORM_COLORS: Record<string, string> = {
+  Instagram: 'from-pink-500 to-purple-600',
+  Facebook: 'from-blue-500 to-blue-700',
+  Twitter: 'from-sky-400 to-sky-600',
+  YouTube: 'from-red-500 to-red-700',
+  TikTok: 'from-zinc-800 to-zinc-950',
+  LinkedIn: 'from-blue-600 to-blue-800',
 }
 
-const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  Instagram: <Instagram className="w-4 h-4" />,
-  Facebook: <Facebook className="w-4 h-4" />,
-  Twitter: <Twitter className="w-4 h-4" />,
-  YouTube: <Youtube className="w-4 h-4" />,
-  TikTok: <Video className="w-4 h-4" />,
-  LinkedIn: <Send className="w-4 h-4" />,
+const STATUS_META: Record<string, { label: string; dot: string; ring: string }> = {
+  pending:   { label: 'Bekliyor',   dot: 'bg-amber-400',  ring: 'ring-amber-400/20' },
+  scheduled: { label: 'Planlandı', dot: 'bg-blue-400',   ring: 'ring-blue-400/20' },
+  published: { label: 'Yayında',   dot: 'bg-moss-400',   ring: 'ring-moss-400/20' },
+  failed:    { label: 'Hatalı',    dot: 'bg-ember-400',  ring: 'ring-ember-400/20' },
 }
 
 const empty = {
   brand: 'Milgo',
   platform: 'Instagram',
   media_url: '',
-  media_type: 'image',
+  media_type: 'image' as 'image' | 'video',
   post_type: 'post',
   title: '',
   caption: '',
@@ -59,6 +58,7 @@ export default function PaylasimPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
+  const [animateIn, setAnimateIn] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -69,25 +69,22 @@ export default function PaylasimPage() {
   }
 
   useEffect(() => { load() }, [])
+  useEffect(() => { if (showForm) setTimeout(() => setAnimateIn(true), 10) }, [showForm])
+
+  function openForm() { setShowForm(true); setAnimateIn(false); setError('') }
+  function closeForm() { setAnimateIn(false); setTimeout(() => { setShowForm(false); setForm(empty) }, 200) }
 
   async function handleSubmit() {
     if (!form.media_url) { setError('Medya URL zorunlu'); return }
-    setSaving(true)
-    setError('')
+    setSaving(true); setError('')
     const r = await fetch('/api/omni', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        scheduled_at: form.scheduled_at || null,
-      }),
+      body: JSON.stringify({ ...form, scheduled_at: form.scheduled_at || null }),
     })
     const d = await r.json()
     if (d.error) { setError(d.error); setSaving(false); return }
-    setShowForm(false)
-    setForm(empty)
-    load()
-    setSaving(false)
+    closeForm(); load(); setSaving(false)
   }
 
   async function updateStatus(id: number, status: string) {
@@ -99,9 +96,15 @@ export default function PaylasimPage() {
     load()
   }
 
-  const filtered = filter === 'all' ? posts : posts.filter(p => p.status === filter)
+  const FILTERS = [
+    { key: 'all', label: 'Tümü' },
+    { key: 'pending', label: 'Bekliyor' },
+    { key: 'scheduled', label: 'Planlandı' },
+    { key: 'published', label: 'Yayında' },
+  ]
 
-  const counts = {
+  const filtered = filter === 'all' ? posts : posts.filter(p => p.status === filter)
+  const counts: Record<string, number> = {
     all: posts.length,
     pending: posts.filter(p => p.status === 'pending').length,
     scheduled: posts.filter(p => p.status === 'scheduled').length,
@@ -109,264 +112,360 @@ export default function PaylasimPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="min-h-screen p-8" style={{ background: 'var(--bg, #0f0e0a)' }}>
+
+      {/* ── Header ── */}
+      <div className="flex items-end justify-between mb-10">
         <div>
-          <h1 className="text-2xl font-display font-semibold text-cream-50">Paylaşım Planla</h1>
-          <p className="text-sm text-ink-400 mt-0.5">Sosyal medya içeriklerini planla ve yönet</p>
+          <p className="text-xs tracking-[0.2em] uppercase text-ink-300 mb-2 font-mono">OmniSocial</p>
+          <h1 className="font-display text-4xl text-cream-50 leading-none tracking-tight">
+            Paylaşım<br />
+            <span className="text-moss-400">Planla</span>
+          </h1>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-moss-600 hover:bg-moss-500 text-cream-50 rounded-xl text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Paylaşım
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={load}
+            className="w-10 h-10 rounded-xl bg-ink-700 hover:bg-ink-500 transition-colors flex items-center justify-center text-ink-300 hover:text-cream-50"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={openForm}
+            className="flex items-center gap-2 pl-4 pr-5 py-2.5 rounded-xl bg-moss-500 hover:bg-moss-400 text-ink-900 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2.5} />
+            Yeni Paylaşım
+          </button>
+        </div>
       </div>
 
-      {/* Filtreler */}
-      <div className="flex gap-2 mb-6">
+      {/* ── Stats strip ── */}
+      <div className="grid grid-cols-4 gap-3 mb-8">
         {[
-          { key: 'all', label: 'Tümü' },
-          { key: 'pending', label: 'Bekliyor' },
-          { key: 'scheduled', label: 'Planlandı' },
-          { key: 'published', label: 'Yayınlandı' },
-        ].map(f => (
+          { key: 'all',       label: 'Toplam',    color: 'text-cream-100' },
+          { key: 'pending',   label: 'Bekliyor',  color: 'text-amber-400' },
+          { key: 'scheduled', label: 'Planlandı', color: 'text-blue-400'  },
+          { key: 'published', label: 'Yayında',   color: 'text-moss-400'  },
+        ].map(s => (
           <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filter === f.key ? 'bg-moss-700 text-cream-50' : 'bg-ink-800 text-ink-300 hover:text-cream-50'}`}
+            key={s.key}
+            onClick={() => setFilter(s.key)}
+            className={`p-4 rounded-2xl border transition-all text-left ${
+              filter === s.key
+                ? 'bg-ink-700 border-ink-500'
+                : 'bg-ink-900 border-ink-700 hover:border-ink-500'
+            }`}
           >
-            {f.label}
-            <span className="text-[11px] bg-ink-700 px-1.5 py-0.5 rounded-full">{counts[f.key as keyof typeof counts]}</span>
+            <div className={`text-3xl font-display font-semibold ${s.color}`}>{counts[s.key]}</div>
+            <div className="text-xs text-ink-400 mt-1 font-mono tracking-wide">{s.label}</div>
           </button>
         ))}
       </div>
 
-      {/* Liste */}
+      {/* ── Liste ── */}
       {loading ? (
-        <div className="flex items-center justify-center h-40 text-ink-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Yükleniyor...
+        <div className="flex items-center justify-center h-48 text-ink-400 gap-3">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm font-mono">Yükleniyor</span>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-40 text-ink-400 border border-dashed border-ink-700 rounded-2xl">
-          <Send className="w-8 h-8 mb-2 opacity-40" />
-          <p className="text-sm">Henüz paylaşım yok</p>
+        <div className="flex flex-col items-center justify-center h-64 border border-dashed border-ink-700 rounded-3xl gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-ink-800 flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-ink-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-cream-50 font-medium text-sm">Henüz içerik yok</p>
+            <p className="text-ink-500 text-xs mt-1">İlk paylaşımını ekle</p>
+          </div>
+          <button onClick={openForm} className="text-xs text-moss-400 hover:text-moss-300 underline underline-offset-4">
+            Ekle →
+          </button>
         </div>
       ) : (
         <div className="grid gap-3">
-          {filtered.map(post => (
-            <div key={post.id} className="bg-ink-800 border border-ink-700 rounded-2xl p-4 flex items-start gap-4">
-              {/* Medya önizleme */}
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-ink-700 shrink-0 flex items-center justify-center">
-                {post.media_url ? (
-                  post.media_type === 'image'
-                    ? <img src={post.media_url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
-                    : <Video className="w-6 h-6 text-ink-400" />
-                ) : <Image className="w-6 h-6 text-ink-400" />}
-              </div>
-
-              {/* Bilgi */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="flex items-center gap-1.5 text-xs text-ink-300 bg-ink-700 px-2 py-1 rounded-lg">
-                    {PLATFORM_ICON[post.platform] || <Send className="w-3 h-3" />}
-                    {post.platform}
-                  </span>
-                  <span className="text-xs text-ink-400 bg-ink-700 px-2 py-1 rounded-lg">{post.post_type}</span>
-                  <span className="text-xs text-ink-400 bg-ink-700 px-2 py-1 rounded-lg">{post.brand}</span>
-                  <span className={`text-xs px-2 py-1 rounded-lg border ${STATUS_BADGE[post.status]?.color || 'bg-ink-700 text-ink-300'}`}>
-                    {STATUS_BADGE[post.status]?.label || post.status}
-                  </span>
-                </div>
-                {post.title && <p className="text-sm font-medium text-cream-100 truncate">{post.title}</p>}
-                {post.caption && <p className="text-xs text-ink-300 truncate mt-0.5">{post.caption}</p>}
-                {post.hashtags && <p className="text-xs text-moss-400 truncate mt-0.5">{post.hashtags}</p>}
-                <div className="flex items-center gap-3 mt-2">
-                  {post.scheduled_at && (
-                    <span className="flex items-center gap-1 text-[11px] text-ink-400">
-                      <Clock className="w-3 h-3" />
-                      {new Date(post.scheduled_at).toLocaleString('tr-TR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
-                    </span>
+          {filtered.map(post => {
+            const meta = STATUS_META[post.status] || STATUS_META.pending
+            return (
+              <div
+                key={post.id}
+                className="group relative bg-ink-900 border border-ink-700 hover:border-ink-500 rounded-2xl p-5 flex items-center gap-5 transition-all"
+              >
+                {/* Medya thumb */}
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-ink-700 shrink-0">
+                  {post.media_url && post.media_type === 'image' ? (
+                    <img src={post.media_url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {post.media_type === 'video'
+                        ? <Video className="w-6 h-6 text-ink-500" />
+                        : <ImageIcon className="w-6 h-6 text-ink-500" />}
+                    </div>
                   )}
-                  <span className="text-[11px] text-ink-500">
-                    {new Date(post.created_at).toLocaleDateString('tr-TR')}
-                  </span>
+                  {/* Platform badge */}
+                  <div className={`absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-r ${PLATFORM_COLORS[post.platform] || 'from-ink-600 to-ink-700'} flex items-center justify-center`}>
+                    <span className="text-[9px] text-white font-bold tracking-wider uppercase">{post.platform}</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Aksiyon */}
-              {post.status === 'pending' && (
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => updateStatus(post.id, 'scheduled')}
-                    title="Planla"
-                    className="p-2 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/40 transition-colors"
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => updateStatus(post.id, 'published')}
-                    title="Yayınlandı"
-                    className="p-2 rounded-lg bg-moss-500/20 text-moss-300 hover:bg-moss-500/40 transition-colors"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                  </button>
+                {/* İçerik */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    {/* Status */}
+                    <span className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full ring-1 ${meta.ring} bg-transparent`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${meta.dot} animate-pulse`} />
+                      <span className="text-cream-200">{meta.label}</span>
+                    </span>
+                    <span className="text-[11px] text-ink-500 bg-ink-800 px-2 py-1 rounded-full font-mono">{post.post_type}</span>
+                    <span className="text-[11px] text-ink-500 bg-ink-800 px-2 py-1 rounded-full font-mono">{post.brand}</span>
+                  </div>
+
+                  {post.title && (
+                    <p className="text-sm font-semibold text-cream-100 truncate leading-snug">{post.title}</p>
+                  )}
+                  {post.caption && (
+                    <p className="text-xs text-ink-300 truncate mt-0.5">{post.caption}</p>
+                  )}
+                  {post.hashtags && (
+                    <p className="text-xs text-moss-500 truncate mt-0.5">{post.hashtags}</p>
+                  )}
+
+                  <div className="flex items-center gap-4 mt-2.5">
+                    {post.scheduled_at && (
+                      <span className="flex items-center gap-1.5 text-[11px] text-blue-400 font-mono">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(post.scheduled_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-ink-600 font-mono">
+                      {new Date(post.created_at).toLocaleDateString('tr-TR')}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Aksiyonlar — sadece hover'da görünür */}
+                {post.status === 'pending' && (
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button
+                      onClick={() => updateStatus(post.id, 'scheduled')}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium transition-colors"
+                    >
+                      <Clock className="w-3.5 h-3.5" /> Planla
+                    </button>
+                    <button
+                      onClick={() => updateStatus(post.id, 'published')}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-moss-500/10 hover:bg-moss-500/20 text-moss-400 text-xs font-medium transition-colors"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Yayınla
+                    </button>
+                  </div>
+                )}
+                {post.media_url && (
+                  <a
+                    href={post.media_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-ink-700 hover:bg-ink-600 flex items-center justify-center text-ink-400 hover:text-cream-50 shrink-0"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* Form Modal */}
+      {/* ── Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-ink-900 border border-ink-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-ink-700">
-              <h2 className="text-lg font-display font-semibold text-cream-50">Yeni Paylaşım</h2>
-              <button onClick={() => { setShowForm(false); setError('') }} className="text-ink-400 hover:text-cream-50">
-                <X className="w-5 h-5" />
+        <div
+          className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 transition-all duration-200 ${animateIn ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
+          onClick={e => { if (e.target === e.currentTarget) closeForm() }}
+        >
+          <div className={`w-full max-w-md bg-ink-900 border border-ink-700 rounded-3xl overflow-hidden transition-all duration-200 ${animateIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-5 border-b border-ink-800">
+              <div>
+                <p className="text-[10px] font-mono text-ink-400 uppercase tracking-widest mb-0.5">OmniSocial</p>
+                <h2 className="text-lg font-display font-semibold text-cream-50 leading-tight">Yeni Paylaşım</h2>
+              </div>
+              <button
+                onClick={closeForm}
+                className="w-8 h-8 rounded-xl bg-ink-800 hover:bg-ink-700 flex items-center justify-center text-ink-400 hover:text-cream-50 transition-colors"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              {/* Brand & Platform */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-ink-400 mb-1.5 block">Marka *</label>
-                  <select
-                    value={form.brand}
-                    onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}
-                    className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 focus:outline-none focus:border-moss-500"
-                  >
-                    {BRANDS.map(b => <option key={b}>{b}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-ink-400 mb-1.5 block">Platform *</label>
-                  <select
-                    value={form.platform}
-                    onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}
-                    className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 focus:outline-none focus:border-moss-500"
-                  >
-                    {PLATFORMS.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
-              </div>
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
 
-              {/* Media Type & Post Type */}
+              {/* Marka + Platform */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-ink-400 mb-1.5 block">Medya Türü *</label>
-                  <div className="flex gap-2">
-                    {MEDIA_TYPES.map(t => (
+                <label className="block">
+                  <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Marka</span>
+                  <div className="flex gap-1.5">
+                    {BRANDS.map(b => (
                       <button
-                        key={t}
-                        onClick={() => setForm(f => ({ ...f, media_type: t }))}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm border transition-colors ${form.media_type === t ? 'border-moss-500 bg-moss-700/30 text-moss-300' : 'border-ink-700 bg-ink-800 text-ink-400 hover:text-cream-50'}`}
+                        key={b}
+                        onClick={() => setForm(f => ({ ...f, brand: b }))}
+                        className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                          form.brand === b
+                            ? 'bg-moss-700 border-moss-500 text-moss-200'
+                            : 'bg-ink-800 border-ink-700 text-ink-400 hover:text-cream-50 hover:border-ink-500'
+                        }`}
                       >
-                        {t === 'image' ? <Image className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
-                        {t === 'image' ? 'Resim' : 'Video'}
+                        {b}
                       </button>
                     ))}
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs text-ink-400 mb-1.5 block">İçerik Türü</label>
-                  <select
-                    value={form.post_type}
-                    onChange={e => setForm(f => ({ ...f, post_type: e.target.value }))}
-                    className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 focus:outline-none focus:border-moss-500"
-                  >
-                    {POST_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                  </select>
-                </div>
+                </label>
+
+                <label className="block">
+                  <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">İçerik türü</span>
+                  <div className="flex gap-1.5">
+                    {POST_TYPES.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setForm(f => ({ ...f, post_type: t }))}
+                        className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all border capitalize ${
+                          form.post_type === t
+                            ? 'bg-ink-600 border-ink-400 text-cream-100'
+                            : 'bg-ink-800 border-ink-700 text-ink-400 hover:text-cream-50 hover:border-ink-500'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </label>
               </div>
+
+              {/* Platform seçici */}
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Platform</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {PLATFORMS.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setForm(f => ({ ...f, platform: p }))}
+                      className={`py-2 rounded-xl text-xs font-medium transition-all border ${
+                        form.platform === p
+                          ? 'border-transparent text-white bg-gradient-to-r ' + PLATFORM_COLORS[p]
+                          : 'bg-ink-800 border-ink-700 text-ink-400 hover:text-cream-50 hover:border-ink-500'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              {/* Medya tipi */}
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Medya türü</span>
+                <div className="flex gap-2">
+                  {(['image', 'video'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setForm(f => ({ ...f, media_type: t }))}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm border transition-all ${
+                        form.media_type === t
+                          ? 'bg-ink-600 border-ink-400 text-cream-100'
+                          : 'bg-ink-800 border-ink-700 text-ink-400 hover:text-cream-50 hover:border-ink-500'
+                      }`}
+                    >
+                      {t === 'image' ? <ImageIcon className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                      {t === 'image' ? 'Resim' : 'Video'}
+                    </button>
+                  ))}
+                </div>
+              </label>
 
               {/* Media URL */}
-              <div>
-                <label className="text-xs text-ink-400 mb-1.5 block">Medya URL *</label>
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Medya URL *</span>
                 <input
                   type="url"
-                  placeholder="https://..."
+                  placeholder="https://cdn.example.com/photo.jpg"
                   value={form.media_url}
                   onChange={e => setForm(f => ({ ...f, media_url: e.target.value }))}
-                  className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 placeholder-ink-500 focus:outline-none focus:border-moss-500"
+                  className="w-full bg-ink-800 border border-ink-700 focus:border-moss-500 rounded-xl px-4 py-3 text-sm text-cream-100 placeholder-ink-600 outline-none transition-colors font-mono"
                 />
-              </div>
+              </label>
 
-              {/* Title */}
-              <div>
-                <label className="text-xs text-ink-400 mb-1.5 block">Başlık</label>
+              {/* Başlık */}
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Başlık</span>
                 <input
                   type="text"
-                  placeholder="Paylaşım başlığı..."
+                  placeholder="Başlık..."
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 placeholder-ink-500 focus:outline-none focus:border-moss-500"
+                  className="w-full bg-ink-800 border border-ink-700 focus:border-moss-500 rounded-xl px-4 py-3 text-sm text-cream-100 placeholder-ink-600 outline-none transition-colors"
                 />
-              </div>
+              </label>
 
               {/* Caption */}
-              <div>
-                <label className="text-xs text-ink-400 mb-1.5 block">Açıklama</label>
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Açıklama</span>
                 <textarea
                   rows={3}
                   placeholder="Post açıklaması..."
                   value={form.caption}
                   onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
-                  className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 placeholder-ink-500 focus:outline-none focus:border-moss-500 resize-none"
+                  className="w-full bg-ink-800 border border-ink-700 focus:border-moss-500 rounded-xl px-4 py-3 text-sm text-cream-100 placeholder-ink-600 outline-none transition-colors resize-none"
                 />
-              </div>
+              </label>
 
               {/* Hashtags */}
-              <div>
-                <label className="text-xs text-ink-400 mb-1.5 block">Hashtag'ler</label>
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Hashtag'ler</span>
                 <input
                   type="text"
                   placeholder="#milgo #çiğsüt #istanbul"
                   value={form.hashtags}
                   onChange={e => setForm(f => ({ ...f, hashtags: e.target.value }))}
-                  className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 placeholder-ink-500 focus:outline-none focus:border-moss-500"
+                  className="w-full bg-ink-800 border border-ink-700 focus:border-moss-500 rounded-xl px-4 py-3 text-sm text-moss-400 placeholder-ink-600 outline-none transition-colors font-mono"
                 />
-              </div>
+              </label>
 
-              {/* Scheduled At */}
-              <div>
-                <label className="text-xs text-ink-400 mb-1.5 block">Planlanan Tarih</label>
+              {/* Tarih */}
+              <label className="block">
+                <span className="text-[11px] font-mono text-ink-400 uppercase tracking-widest mb-2 block">Planlanan Tarih</span>
                 <input
                   type="datetime-local"
                   value={form.scheduled_at}
                   onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))}
-                  className="w-full bg-ink-800 border border-ink-700 rounded-xl px-3 py-2.5 text-sm text-cream-100 focus:outline-none focus:border-moss-500"
+                  className="w-full bg-ink-800 border border-ink-700 focus:border-moss-500 rounded-xl px-4 py-3 text-sm text-cream-100 outline-none transition-colors [color-scheme:dark]"
                 />
-              </div>
+              </label>
 
+              {/* Hata */}
               {error && (
-                <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                <div className="flex items-center gap-2.5 text-sm text-ember-400 bg-ember-400/10 border border-ember-400/20 rounded-xl px-4 py-3">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   {error}
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { setShowForm(false); setError('') }}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-ink-700 text-ink-300 hover:text-cream-50 text-sm transition-colors"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={saving}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-moss-600 hover:bg-moss-500 text-cream-50 text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {saving ? 'Kaydediliyor...' : 'Kaydet'}
-                </button>
-              </div>
+            {/* Modal footer */}
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={closeForm}
+                className="flex-1 py-3 rounded-xl border border-ink-700 text-ink-300 hover:text-cream-50 hover:border-ink-500 text-sm font-medium transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-moss-500 hover:bg-moss-400 text-ink-900 text-sm font-semibold transition-all disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
             </div>
           </div>
         </div>
